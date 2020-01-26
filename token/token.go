@@ -1,4 +1,4 @@
-// Package token 支持多端登录，刷新后还有5分钟有效期
+// Package token 支持多端登录，生成新token后旧token还有5分钟有效期
 package token
 
 import (
@@ -14,10 +14,18 @@ import (
 
 // Mgr Token管理器定义
 type Mgr interface {
-	Generate(uid, from string) (token string, deadline int64, err error)             // 生成一个新的token
-	Verify(uid, token, from string) (ok bool, err error)                             // 验证token是否有效
-	Refresh(uid, oldToken, from string) (newToken string, deadline int64, err error) // 刷新token
-	Clean(uid, token, from string) error                                             // 清除token
+	Generate(uid, from string) (token string, deadline int64, err error) // 生成一个新的token
+	Verify(uid, from, token string) (ok bool, err error)                 // 验证token是否有效
+	Clean(uid, from, token string) error                                 // 清除token
+}
+
+// New ...
+func New(name string, pool *redigo.Pool, expire int64) *DefaultMgr {
+	return &DefaultMgr{
+		name:   name,
+		pool:   pool,
+		expire: expire,
+	}
 }
 
 // DefaultMgr 默认管理器
@@ -33,7 +41,10 @@ func getTokenKey(name, uid, from string) string {
 }
 
 // Generate ...
-func (s *DefaultMgr) generate(conn redigo.Conn, uid, from string) (token string, deadline int64, err error) {
+func (s *DefaultMgr) Generate(uid, from string) (token string, deadline int64, err error) {
+	conn := s.pool.Get()
+	defer conn.Close()
+
 	tokenKey := getTokenKey(s.name, uid, from)
 	lockName := tokenKey + ":locker"
 
@@ -56,9 +67,9 @@ func (s *DefaultMgr) generate(conn redigo.Conn, uid, from string) (token string,
 	}
 
 	var latestDeadline int64
-	for _, value := range result {
-		if value > latestDeadline {
-			latestDeadline = value
+	for _, oldDeadline := range result {
+		if oldDeadline > latestDeadline {
+			latestDeadline = oldDeadline
 		}
 	}
 
@@ -83,7 +94,7 @@ func (s *DefaultMgr) generate(conn redigo.Conn, uid, from string) (token string,
 	}
 	commandCount++
 
-	// 设定token和生成时间
+	// 设定token和deadline
 	if err = conn.Send("HSET", tokenKey, token, deadline); err != nil {
 		return
 	}
@@ -108,7 +119,10 @@ func (s *DefaultMgr) generate(conn redigo.Conn, uid, from string) (token string,
 }
 
 // Verify ...
-func (s *DefaultMgr) verify(conn redigo.Conn, uid, from, token string) (ok bool, err error) {
+func (s *DefaultMgr) Verify(uid, from, token string) (ok bool, err error) {
+	conn := s.pool.Get()
+	defer conn.Close()
+
 	tokenKey := getTokenKey(s.name, uid, from)
 
 	var deadline int64
@@ -117,41 +131,7 @@ func (s *DefaultMgr) verify(conn redigo.Conn, uid, from, token string) (ok bool,
 		return
 	}
 
-	return deadline > time.Now().Unix()+s.expire, nil
-}
-
-// Generate ...
-func (s *DefaultMgr) Generate(uid, from string) (token string, deadline int64, err error) {
-	conn := s.pool.Get()
-	defer conn.Close()
-
-	return s.generate(conn, uid, from)
-}
-
-// Verify ...
-func (s *DefaultMgr) Verify(uid, from, token string) (ok bool, err error) {
-	conn := s.pool.Get()
-	defer conn.Close()
-
-	return s.verify(conn, uid, from, token)
-}
-
-// Refresh ...
-func (s *DefaultMgr) Refresh(uid, from, oldToken string) (newToken string, deadline int64, err error) {
-	conn := s.pool.Get()
-	defer conn.Close()
-
-	var ok bool
-	ok, err = s.verify(conn, uid, from, oldToken)
-	if err != nil {
-		return
-	}
-	if !ok {
-		err = fmt.Errorf("token Invalid")
-		return
-	}
-
-	return s.generate(conn, uid, from)
+	return deadline > time.Now().Unix(), nil
 }
 
 // Clean ...
