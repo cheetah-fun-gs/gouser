@@ -1,5 +1,5 @@
-// Package token 支持多端登录，生成新token后旧token还有5分钟有效期
-package token
+// Package tokenmgr 支持多端登录，生成新token后旧token还有5分钟有效期
+package tokenmgr
 
 import (
 	"fmt"
@@ -12,15 +12,15 @@ import (
 	redigo "github.com/gomodule/redigo/redis"
 )
 
-// Mgr Token管理器定义
-type Mgr interface {
+// TokenMgr Token管理器定义
+type TokenMgr interface {
 	Generate(uid, from string) (token string, deadline int64, err error) // 生成一个新的token
 	Verify(uid, from, token string) (ok bool, err error)                 // 验证token是否有效
 	Clean(uid, from, token string) error                                 // 清除token
 }
 
 // New ...
-func New(name string, pool *redigo.Pool, expire int64) *DefaultMgr {
+func New(name string, pool *redigo.Pool, expire int) *DefaultMgr {
 	return &DefaultMgr{
 		name:   name,
 		pool:   pool,
@@ -31,7 +31,7 @@ func New(name string, pool *redigo.Pool, expire int64) *DefaultMgr {
 // DefaultMgr 默认管理器
 type DefaultMgr struct {
 	name   string // 管理器名称
-	expire int64  // 凭证的有效时间 应该大于5分钟
+	expire int    // 凭证的有效时间 应该大于5分钟
 	pool   *redigo.Pool
 }
 
@@ -58,7 +58,7 @@ func (s *DefaultMgr) Generate(uid, from string) (token string, deadline int64, e
 
 	now := time.Now()
 	token = uuidplus.NewV4().Base62()
-	deadline = now.Unix() + s.expire
+	deadline = now.Unix() + int64(s.expire)
 
 	var result map[string]int64
 	result, err = redigo.Int64Map(conn.Do("HGETALL", tokenKey))
