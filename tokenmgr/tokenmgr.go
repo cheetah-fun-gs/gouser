@@ -19,20 +19,31 @@ type TokenMgr interface {
 	Clean(uid, from, token string) error                                 // 清除token
 }
 
+// DefaultMgr 默认管理器
+type DefaultMgr struct {
+	name          string // 管理器名称
+	expire        int    // 凭证的有效时间 应该大于5分钟
+	pool          *redigo.Pool
+	generateToken func(uid, from string) string
+}
+
 // New ...
 func New(name string, pool *redigo.Pool, expire int) *DefaultMgr {
 	return &DefaultMgr{
-		name:   name,
-		pool:   pool,
-		expire: expire,
+		name:          name,
+		pool:          pool,
+		expire:        expire,
+		generateToken: defaultGenerateToken,
 	}
 }
 
-// DefaultMgr 默认管理器
-type DefaultMgr struct {
-	name   string // 管理器名称
-	expire int    // 凭证的有效时间 应该大于5分钟
-	pool   *redigo.Pool
+// SetGenerateToken 设置token方法
+func (s *DefaultMgr) SetGenerateToken(v func(uid, from string) string) {
+	s.generateToken = v
+}
+
+func defaultGenerateToken(uid, from string) string {
+	return uuidplus.NewV4().Base62()
 }
 
 // map[token]create_time
@@ -57,7 +68,7 @@ func (s *DefaultMgr) Generate(uid, from string) (token string, deadline int64, e
 	defer l.Close()
 
 	now := time.Now()
-	token = uuidplus.NewV4().Base62()
+	token = s.generateToken(uid, from)
 	deadline = now.Unix() + int64(s.expire)
 
 	var result map[string]int64

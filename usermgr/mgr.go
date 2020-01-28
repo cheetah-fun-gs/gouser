@@ -9,24 +9,31 @@ import (
 
 // UserMgr 用户管理器
 type UserMgr struct {
-	tokenmgr       tokenmgr.TokenMgr               // token 管理器
-	sendEmailCode  func(email, code string) error  // 发送邮箱验证码
-	sendMobileCode func(mobile, code string) error // 发送短信验证码
-	generateUID    func() (uid, extra string)      // 生成一个全新的uid和扩展信息
-	authMgrs       []authmgr.AuthMgr               // 支持的认证方式
-	config         *Config
-	name           string
+	tokenmgr          tokenmgr.TokenMgr               // token 管理器
+	sendEmailCode     func(email, code string) error  // 发送邮箱验证码
+	sendMobileCode    func(mobile, code string) error // 发送短信验证码
+	generateUID       func() (uid, extra string)      // 生成一个全新的uid和扩展信息
+	generateAccessKey func(uid string) string         // 生成一个全新的AccessKey
+	authMgrs          []authmgr.AuthMgr               // 支持的认证方式
+	config            *Config
+	name              string
 }
 
 // Config ...
 type Config struct {
-	TokenExpire     int  // token 超时时间
-	IsOpenAccessKey bool // 是否打开访问密钥功能
+	TokenExpire        int    // token 超时时间
+	IsOpenAccessKey    bool   // 是否打开访问密钥功能
+	UIDFieldType       string // uid 字段类型 默认 char(22)
+	AccessKeyFieldType string // access key 字段类型 默认 char(22)
 }
 
 func defaultGenerateUID() (uid, extra string) {
 	uid = uuidplus.NewV4().Base62()
 	return
+}
+
+func defaultGenerateAccessKey(uid string) string {
+	return uuidplus.NewV4().Base62()
 }
 
 func defaultSendEmailCode(email, code string) error {
@@ -44,17 +51,20 @@ func New(name string, pool *redigo.Pool, args ...interface{}) *UserMgr {
 		config = args[0].(*Config)
 	} else {
 		config = &Config{
-			TokenExpire: 3600 * 2,
+			TokenExpire:        3600 * 2,
+			UIDFieldType:       "Char(22)",
+			AccessKeyFieldType: "Char(22)",
 		}
 	}
 
 	mgr := &UserMgr{
-		name:           name,
-		config:         config,
-		tokenmgr:       tokenmgr.New(name, pool, config.TokenExpire),
-		generateUID:    defaultGenerateUID,
-		sendEmailCode:  defaultSendEmailCode,
-		sendMobileCode: defaultSendMobileCode,
+		name:              name,
+		config:            config,
+		tokenmgr:          tokenmgr.New(name, pool, config.TokenExpire),
+		generateUID:       defaultGenerateUID,
+		generateAccessKey: defaultGenerateAccessKey,
+		sendEmailCode:     defaultSendEmailCode,
+		sendMobileCode:    defaultSendMobileCode,
 	}
 	return mgr
 }
@@ -82,4 +92,9 @@ func (mgr *UserMgr) SetSendMobileCode(v func(mobile, code string) error) {
 // SetGenerateUID ...
 func (mgr *UserMgr) SetGenerateUID(v func() (uid, extra string)) {
 	mgr.generateUID = v
+}
+
+// SetGenerateAccessKey ...
+func (mgr *UserMgr) SetGenerateAccessKey(v func(uid string) string) {
+	mgr.generateAccessKey = v
 }
