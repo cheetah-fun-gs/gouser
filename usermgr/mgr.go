@@ -1,6 +1,7 @@
 package usermgr
 
 import (
+	"database/sql"
 	"fmt"
 
 	uuidplus "github.com/cheetah-fun-gs/goplus/uuid"
@@ -25,6 +26,8 @@ type UserMgr struct {
 	generateUID       func() (uid, extra string)      // 生成一个全新的uid和扩展信息
 	generateAccessKey func(uid string) string         // 生成一个全新的AccessKey
 	authMgrs          []authmgr.AuthMgr               // 支持的第三方认证方式
+	pool              *redigo.Pool
+	db                *sql.DB
 	config            *Config
 	name              string
 }
@@ -54,7 +57,7 @@ func defaultSendMobileCode(mobile, code string) error {
 }
 
 // New 一个新的用户管理器
-func New(name string, pool *redigo.Pool, args ...interface{}) *UserMgr {
+func New(name string, pool *redigo.Pool, db *sql.DB, args ...interface{}) *UserMgr {
 	var config *Config
 	if len(args) > 0 {
 		config = args[0].(*Config)
@@ -67,6 +70,8 @@ func New(name string, pool *redigo.Pool, args ...interface{}) *UserMgr {
 	mgr := &UserMgr{
 		name:     name,
 		config:   config,
+		pool:     pool,
+		db:       db,
 		tokenmgr: tokenmgr.New(name, pool, config.TokenExpire),
 		tableUser: &modelTable{
 			Name:      name + "_user",
@@ -140,4 +145,22 @@ func (mgr *UserMgr) SetTableAccessKey(tableName, tableCreateSQL string) {
 		Name:      tableName,
 		CreateSQL: tableCreateSQL,
 	}
+}
+
+// EnsureTables 确保sql表已建立
+func (mgr *UserMgr) EnsureTables() error {
+	if _, err := mgr.db.Exec(mgr.tableUser.CreateSQL); err != nil {
+		return err
+	}
+	if mgr.config.IsSupportAuth {
+		if _, err := mgr.db.Exec(mgr.tableAuth.CreateSQL); err != nil {
+			return err
+		}
+	}
+	if mgr.config.IsSupportAccessKey {
+		if _, err := mgr.db.Exec(mgr.tableAccessKey.CreateSQL); err != nil {
+			return err
+		}
+	}
+	return nil
 }
