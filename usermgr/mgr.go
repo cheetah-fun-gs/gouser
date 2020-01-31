@@ -17,19 +17,19 @@ type modelTable struct {
 
 // UserMgr 用户管理器
 type UserMgr struct {
-	tokenmgr          tokenmgr.TokenMgr               // token 管理器
-	tableUser         *modelTable                     // 用户表
-	tableAuth         *modelTable                     // 第三方认证表
-	tableAccessKey    *modelTable                     // 访问密钥表
-	sendEmailCode     func(email, code string) error  // 发送邮箱验证码
-	sendMobileCode    func(mobile, code string) error // 发送短信验证码
-	generateUID       func() (uid, extra string)      // 生成一个全新的uid和扩展信息
-	generateAccessKey func(uid string) string         // 生成一个全新的AccessKey
-	authMgrs          []authmgr.AuthMgr               // 支持的第三方认证方式
-	pool              *redigo.Pool
-	db                *sql.DB
-	config            *Config
-	name              string
+	tokenmgr           tokenmgr.TokenMgr               // token 管理器
+	tableUser          *modelTable                     // 用户表
+	tableUserAuth      *modelTable                     // 第三方认证表
+	tableUserAccessKey *modelTable                     // 访问密钥表
+	sendEmailCode      func(email, code string) error  // 发送邮箱验证码
+	sendMobileCode     func(mobile, code string) error // 发送短信验证码
+	generateUID        func() (uid, extra string)      // 生成一个全新的uid和扩展信息
+	generateAccessKey  func(uid string) string         // 生成一个全新的AccessKey
+	authMgrs           []authmgr.AuthMgr               // 支持的第三方认证方式
+	pool               *redigo.Pool
+	db                 *sql.DB
+	config             *Config
+	name               string
 }
 
 // Config ...
@@ -76,13 +76,13 @@ func New(name string, pool *redigo.Pool, db *sql.DB, args ...interface{}) *UserM
 			Name:      name + "_user",
 			CreateSQL: fmt.Sprintf(TableUser, name+"_user"),
 		},
-		tableAuth: &modelTable{
+		tableUserAuth: &modelTable{
 			Name:      name + "_user_auth",
-			CreateSQL: fmt.Sprintf(TableAuth, name+"_user_auth"),
+			CreateSQL: fmt.Sprintf(TableUserAuth, name+"_user_auth"),
 		},
-		tableAccessKey: &modelTable{
+		tableUserAccessKey: &modelTable{
 			Name:      name + "_user_access_key",
-			CreateSQL: fmt.Sprintf(TableAccessKey, name+"_user_access_key"),
+			CreateSQL: fmt.Sprintf(TableUserAccessKey, name+"_user_access_key"),
 		},
 		generateUID:       defaultGenerateUID,
 		generateAccessKey: defaultGenerateAccessKey,
@@ -133,7 +133,7 @@ func (mgr *UserMgr) SetTableUser(tableName, tableCreateSQL string) error {
 
 // SetTableAuth ...
 func (mgr *UserMgr) SetTableAuth(tableName, tableCreateSQL string) error {
-	mgr.tableAuth = &modelTable{
+	mgr.tableUserAuth = &modelTable{
 		Name:      tableName,
 		CreateSQL: tableCreateSQL,
 	}
@@ -142,7 +142,7 @@ func (mgr *UserMgr) SetTableAuth(tableName, tableCreateSQL string) error {
 
 // SetTableAccessKey ...
 func (mgr *UserMgr) SetTableAccessKey(tableName, tableCreateSQL string) error {
-	mgr.tableAccessKey = &modelTable{
+	mgr.tableUserAccessKey = &modelTable{
 		Name:      tableName,
 		CreateSQL: tableCreateSQL,
 	}
@@ -155,12 +155,12 @@ func (mgr *UserMgr) EnsureTables() error {
 		return err
 	}
 	if len(mgr.authMgrs) > 0 {
-		if _, err := mgr.db.Exec(mgr.tableAuth.CreateSQL); err != nil {
+		if _, err := mgr.db.Exec(mgr.tableUserAuth.CreateSQL); err != nil {
 			return err
 		}
 	}
 	if mgr.config.IsSupportAccessKey {
-		if _, err := mgr.db.Exec(mgr.tableAccessKey.CreateSQL); err != nil {
+		if _, err := mgr.db.Exec(mgr.tableUserAccessKey.CreateSQL); err != nil {
 			return err
 		}
 	}
@@ -171,10 +171,10 @@ func (mgr *UserMgr) EnsureTables() error {
 func (mgr *UserMgr) TablesCreateSQL() []string {
 	result := []string{mgr.tableUser.CreateSQL}
 	if len(mgr.authMgrs) > 0 {
-		result = append(result, mgr.tableAuth.CreateSQL)
+		result = append(result, mgr.tableUserAuth.CreateSQL)
 	}
 	if mgr.config.IsSupportAccessKey {
-		result = append(result, mgr.tableAccessKey.CreateSQL)
+		result = append(result, mgr.tableUserAccessKey.CreateSQL)
 	}
 	return result
 }

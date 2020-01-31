@@ -28,7 +28,7 @@ const (
 		KEY idx_created (created),
 		KEY idx_updated (updated)
 	  ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COMMENT='用户表'`
-	TableAuth = `CREATE TABLE IF NOT EXISTS %v (
+	TableUserAuth = `CREATE TABLE IF NOT EXISTS %v (
 		id int(10) unsigned NOT NULL AUTO_INCREMENT COMMENT '自增长ID',
 		uid char(22) NOT NULL COMMENT 'uid',
 		auth_name varchar(45) NOT NULL COMMENT '认证名称',
@@ -42,7 +42,7 @@ const (
 		KEY idx_created (created),
 		KEY idx_updated (updated)
 	  ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COMMENT='第三方认证表'`
-	TableAccessKey = `CREATE TABLE IF NOT EXISTS %v (
+	TableUserAccessKey = `CREATE TABLE IF NOT EXISTS %v (
 		id int(10) unsigned NOT NULL AUTO_INCREMENT COMMENT '自增长ID',
 		access_key char(22) NOT NULL COMMENT '访问密钥',
 		uid char(22) NOT NULL COMMENT '用户ID',
@@ -74,8 +74,8 @@ type ModelUser struct {
 	Updated   time.Time      `json:"updated,omitempty"`
 }
 
-// ModelAuth 用户和第三方认证绑定表
-type ModelAuth struct {
+// ModelUserAuth 用户和第三方认证绑定表
+type ModelUserAuth struct {
 	ID        int       `json:"id,omitempty"`
 	UID       string    `json:"uid,omitempty"` // ModelUser UID
 	AuthName  string    `json:"auth_name,omitempty"`
@@ -85,8 +85,8 @@ type ModelAuth struct {
 	Updated   time.Time `json:"updated,omitempty"`
 }
 
-// ModelAccessKey 访问密钥
-type ModelAccessKey struct {
+// ModelUserAccessKey 访问密钥
+type ModelUserAccessKey struct {
 	ID        int       `json:"id,omitempty"`
 	AccessKey string    `json:"access_key,omitempty"`
 	UID       string    `json:"uid,omitempty"` // ModelUser UID
