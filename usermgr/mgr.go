@@ -164,3 +164,15 @@ func (mgr *UserMgr) EnsureTables() error {
 	}
 	return nil
 }
+
+// TablesCreateSQL 建表语句
+func (mgr *UserMgr) TablesCreateSQL() []string {
+	result := []string{mgr.tableUser.CreateSQL}
+	if mgr.config.IsSupportAuth {
+		result = append(result, mgr.tableAuth.CreateSQL)
+	}
+	if mgr.config.IsSupportAccessKey {
+		result = append(result, mgr.tableAccessKey.CreateSQL)
+	}
+	return result
+}
