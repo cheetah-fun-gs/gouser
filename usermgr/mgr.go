@@ -35,7 +35,6 @@ type UserMgr struct {
 // Config ...
 type Config struct {
 	TokenExpire        int  // token 超时时间
-	IsSupportAuth      bool // 是否支持第三方认证
 	IsSupportAccessKey bool // 是否支持访问密钥
 }
 
@@ -124,27 +123,30 @@ func (mgr *UserMgr) SetGenerateAccessKey(v func(uid string) string) {
 }
 
 // SetTableUser ...
-func (mgr *UserMgr) SetTableUser(tableName, tableCreateSQL string) {
+func (mgr *UserMgr) SetTableUser(tableName, tableCreateSQL string) error {
 	mgr.tableUser = &modelTable{
 		Name:      tableName,
 		CreateSQL: tableCreateSQL,
 	}
+	return nil
 }
 
 // SetTableAuth ...
-func (mgr *UserMgr) SetTableAuth(tableName, tableCreateSQL string) {
+func (mgr *UserMgr) SetTableAuth(tableName, tableCreateSQL string) error {
 	mgr.tableAuth = &modelTable{
 		Name:      tableName,
 		CreateSQL: tableCreateSQL,
 	}
+	return nil
 }
 
 // SetTableAccessKey ...
-func (mgr *UserMgr) SetTableAccessKey(tableName, tableCreateSQL string) {
+func (mgr *UserMgr) SetTableAccessKey(tableName, tableCreateSQL string) error {
 	mgr.tableAccessKey = &modelTable{
 		Name:      tableName,
 		CreateSQL: tableCreateSQL,
 	}
+	return nil
 }
 
 // EnsureTables 确保sql表已建立
@@ -152,7 +154,7 @@ func (mgr *UserMgr) EnsureTables() error {
 	if _, err := mgr.db.Exec(mgr.tableUser.CreateSQL); err != nil {
 		return err
 	}
-	if mgr.config.IsSupportAuth {
+	if len(mgr.authMgrs) > 0 {
 		if _, err := mgr.db.Exec(mgr.tableAuth.CreateSQL); err != nil {
 			return err
 		}
@@ -168,7 +170,7 @@ func (mgr *UserMgr) EnsureTables() error {
 // TablesCreateSQL 建表语句
 func (mgr *UserMgr) TablesCreateSQL() []string {
 	result := []string{mgr.tableUser.CreateSQL}
-	if mgr.config.IsSupportAuth {
+	if len(mgr.authMgrs) > 0 {
 		result = append(result, mgr.tableAuth.CreateSQL)
 	}
 	if mgr.config.IsSupportAccessKey {
