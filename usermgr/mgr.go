@@ -60,8 +60,8 @@ func defaultGenerateCode() (string, int) {
 	return "", 600
 }
 
-func getCodeKey(name, uid, code string) string {
-	return fmt.Sprintf("%s:%s:%s:code", name, uid, code)
+func getCodeKey(name, code string) string {
+	return fmt.Sprintf("%s:%s:code", name, code)
 }
 
 // New 一个新的用户管理器
@@ -194,44 +194,78 @@ func (mgr *UserMgr) TablesCreateSQL() []string {
 	return result
 }
 
-func (mgr *UserMgr) applyCode(uid, src string) (code string, expire int, err error) {
+func (mgr *UserMgr) applyCode(content string) (code string, expire int, err error) {
 	code, expire = mgr.generateCode()
 	conn := mgr.pool.Get()
 	defer conn.Close()
 
-	codeKey := getCodeKey(mgr.name, uid, code)
-	_, err = conn.Do("SETEX", codeKey, expire, src)
+	codeKey := getCodeKey(mgr.name, code)
+	var rs string
+	rs, err = redigo.String(conn.Do("SET", codeKey, content, "EX", expire, "NX"))
+	if err != nil {
+		return
+	}
+	if rs != "OK" {
+		return "", 0, fmt.Errorf("code duplicate")
+	}
 	return
 }
 
-func (mgr *UserMgr) checkCode(uid, code, src string) (bool, error) {
+func (mgr *UserMgr) checkCode(code string) (ok bool, content string, err error) {
 	conn := mgr.pool.Get()
 	defer conn.Close()
 
-	codeKey := getCodeKey(mgr.name, uid, code)
-	v, err := redigo.String(conn.Do("GET", codeKey))
+	codeKey := getCodeKey(mgr.name, code)
+	content, err = redigo.String(conn.Do("GET", codeKey))
 	if err != nil && err != redigo.ErrNil {
-		return false, err
+		return
 	}
-	return v == src, nil
+	if err == redigo.ErrNil {
+		return false, "", nil
+	}
+	return
 }
 
 func (mgr *UserMgr) getPassword(rawPassword string) string {
 	return uuidplus.NewV5(mgr.name, rawPassword).Base62()
 }
 
-// RegisterLAPD 用户密码注册
+// RegisterLAPD 密码用户注册
 func (mgr *UserMgr) RegisterLAPD(uid, rawPassword string) (*User, error) {
 	return nil, nil
 }
 
-// RegisterEmail 用户密码注册
-func (mgr *UserMgr) RegisterEmail(uid, rawPassword string) (*User, error) {
+// RegisterEmailApplyCode 邮件用户注册申请code
+func (mgr *UserMgr) RegisterEmailApplyCode() (code string, expire int, err error) {
+	return mgr.applyCode("RegisterEmail")
+}
+
+// RegisterEmail 邮件用户注册
+func (mgr *UserMgr) RegisterEmail(uid, code string) (*User, error) {
+	ok, _, err := mgr.checkCode(code)
+	if err != nil {
+		return nil, err
+	}
+	if !ok {
+		return nil, fmt.Errorf("code is invalid")
+	}
 	return nil, nil
 }
 
-// RegisterMobile 用户密码注册
-func (mgr *UserMgr) RegisterMobile(uid, rawPassword string) (*User, error) {
+// RegisterMobileApplyCode 手机用户注册申请code
+func (mgr *UserMgr) RegisterMobileApplyCode() (code string, expire int, err error) {
+	return mgr.applyCode("RegisterMobile")
+}
+
+// RegisterMobile 手机用户注册
+func (mgr *UserMgr) RegisterMobile(uid, code string) (*User, error) {
+	ok, _, err := mgr.checkCode(code)
+	if err != nil {
+		return nil, err
+	}
+	if !ok {
+		return nil, fmt.Errorf("code is invalid")
+	}
 	return nil, nil
 }
 
