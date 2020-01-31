@@ -17,15 +17,16 @@ type modelTable struct {
 
 // UserMgr 用户管理器
 type UserMgr struct {
-	tokenmgr           tokenmgr.TokenMgr               // token 管理器
-	tableUser          *modelTable                     // 用户表
-	tableUserAuth      *modelTable                     // 第三方认证表
-	tableUserAccessKey *modelTable                     // 访问密钥表
-	sendEmailCode      func(email, code string) error  // 发送邮箱验证码
-	sendMobileCode     func(mobile, code string) error // 发送短信验证码
-	generateUID        func() (uid, extra string)      // 生成一个全新的uid和扩展信息
-	generateAccessKey  func(uid string) string         // 生成一个全新的AccessKey
-	authMgrs           []authmgr.AuthMgr               // 支持的第三方认证方式
+	tokenmgr           tokenmgr.TokenMgr                // token 管理器
+	tableUser          *modelTable                      // 用户表
+	tableUserAuth      *modelTable                      // 第三方认证表
+	tableUserAccessKey *modelTable                      // 访问密钥表
+	sendEmailCode      func(email, code string) error   // 发送邮箱验证码
+	sendMobileCode     func(mobile, code string) error  // 发送短信验证码
+	generateUID        func() (uid, extra string)       // 生成一个全新的uid和扩展信息
+	generateCode       func() (code string, expire int) // 生成一个校验码
+	generateAccessKey  func() string                    // 生成一个全新的AccessKey
+	authMgrs           []authmgr.AuthMgr                // 支持的第三方认证方式
 	pool               *redigo.Pool
 	db                 *sql.DB
 	config             *Config
@@ -43,7 +44,7 @@ func defaultGenerateUID() (uid, extra string) {
 	return
 }
 
-func defaultGenerateAccessKey(uid string) string {
+func defaultGenerateAccessKey() string {
 	return uuidplus.NewV4().Base62()
 }
 
@@ -53,6 +54,14 @@ func defaultSendEmailCode(email, code string) error {
 
 func defaultSendMobileCode(mobile, code string) error {
 	return nil
+}
+
+func defaultGenerateCode() (string, int) {
+	return "", 600
+}
+
+func getCodeKey(name, uid, code string) string {
+	return fmt.Sprintf("%s:%s:%s:code", name, uid, code)
 }
 
 // New 一个新的用户管理器
@@ -88,6 +97,7 @@ func New(name string, pool *redigo.Pool, db *sql.DB, args ...interface{}) *UserM
 		generateAccessKey: defaultGenerateAccessKey,
 		sendEmailCode:     defaultSendEmailCode,
 		sendMobileCode:    defaultSendMobileCode,
+		generateCode:      defaultGenerateCode,
 	}
 	return mgr
 }
@@ -117,8 +127,13 @@ func (mgr *UserMgr) SetGenerateUID(v func() (uid, extra string)) {
 	mgr.generateUID = v
 }
 
+// SetGenerateCode ...
+func (mgr *UserMgr) SetGenerateCode(v func() (code string, expire int)) {
+	mgr.generateCode = v
+}
+
 // SetGenerateAccessKey ...
-func (mgr *UserMgr) SetGenerateAccessKey(v func(uid string) string) {
+func (mgr *UserMgr) SetGenerateAccessKey(v func() string) {
 	mgr.generateAccessKey = v
 }
 
@@ -177,4 +192,50 @@ func (mgr *UserMgr) TablesCreateSQL() []string {
 		result = append(result, mgr.tableUserAccessKey.CreateSQL)
 	}
 	return result
+}
+
+func (mgr *UserMgr) applyCode(uid, src string) (code string, expire int, err error) {
+	code, expire = mgr.generateCode()
+	conn := mgr.pool.Get()
+	defer conn.Close()
+
+	codeKey := getCodeKey(mgr.name, uid, code)
+	_, err = conn.Do("SETEX", codeKey, expire, src)
+	return
+}
+
+func (mgr *UserMgr) checkCode(uid, code, src string) (bool, error) {
+	conn := mgr.pool.Get()
+	defer conn.Close()
+
+	codeKey := getCodeKey(mgr.name, uid, code)
+	v, err := redigo.String(conn.Do("GET", codeKey))
+	if err != nil && err != redigo.ErrNil {
+		return false, err
+	}
+	return v == src, nil
+}
+
+func (mgr *UserMgr) getPassword(rawPassword string) string {
+	return uuidplus.NewV5(mgr.name, rawPassword).Base62()
+}
+
+// RegisterLAPD 用户密码注册
+func (mgr *UserMgr) RegisterLAPD(uid, rawPassword string) (*User, error) {
+	return nil, nil
+}
+
+// RegisterEmail 用户密码注册
+func (mgr *UserMgr) RegisterEmail(uid, rawPassword string) (*User, error) {
+	return nil, nil
+}
+
+// RegisterMobile 用户密码注册
+func (mgr *UserMgr) RegisterMobile(uid, rawPassword string) (*User, error) {
+	return nil, nil
+}
+
+// RegisterTourist 游客注册
+func (mgr *UserMgr) RegisterTourist(uid, rawPassword string) (*User, error) {
+	return nil, nil
 }

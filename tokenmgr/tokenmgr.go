@@ -48,7 +48,7 @@ func defaultGenerateToken(uid, from string) string {
 
 // map[token]create_time
 func getTokenKey(name, uid, from string) string {
-	return fmt.Sprintf("%s:%s:%s", name, uid, from)
+	return fmt.Sprintf("%s:%s:%s:token", name, uid, from)
 }
 
 // Generate ...
