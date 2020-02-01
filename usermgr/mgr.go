@@ -3,8 +3,12 @@ package usermgr
 import (
 	"database/sql"
 	"fmt"
+	"time"
 
+	sqlplus "github.com/cheetah-fun-gs/goplus/dao/sql"
+	mlogger "github.com/cheetah-fun-gs/goplus/multier/multilogger"
 	uuidplus "github.com/cheetah-fun-gs/goplus/uuid"
+	"github.com/cheetah-fun-gs/gouser"
 	"github.com/cheetah-fun-gs/gouser/authmgr"
 	"github.com/cheetah-fun-gs/gouser/tokenmgr"
 	redigo "github.com/gomodule/redigo/redis"
@@ -17,16 +21,16 @@ type modelTable struct {
 
 // UserMgr 用户管理器
 type UserMgr struct {
-	tokenmgr           tokenmgr.TokenMgr                // token 管理器
-	tableUser          *modelTable                      // 用户表
-	tableUserAuth      *modelTable                      // 第三方认证表
-	tableUserAccessKey *modelTable                      // 访问密钥表
-	sendEmailCode      func(email, code string) error   // 发送邮箱验证码
-	sendMobileCode     func(mobile, code string) error  // 发送短信验证码
-	generateUID        func() (uid, extra string)       // 生成一个全新的uid和扩展信息
-	generateCode       func() (code string, expire int) // 生成一个校验码
-	generateAccessKey  func() string                    // 生成一个全新的AccessKey
-	authMgrs           []authmgr.AuthMgr                // 支持的第三方认证方式
+	tokenmgr           tokenmgr.TokenMgr                            // token 管理器
+	tableUser          *modelTable                                  // 用户表
+	tableUserAuth      *modelTable                                  // 第三方认证表
+	tableUserAccessKey *modelTable                                  // 访问密钥表
+	sendEmailCode      func(email, code string) error               // 发送邮箱验证码
+	sendMobileCode     func(mobile, code string) error              // 发送短信验证码
+	generateUID        func() (uid, nickname, avatar, extra string) // 生成一个全新的uid和扩展信息
+	generateCode       func() (code string, expire int)             // 生成一个校验码
+	generateAccessKey  func() string                                // 生成一个全新的AccessKey
+	authMgrs           []authmgr.AuthMgr                            // 支持的第三方认证方式
 	pool               *redigo.Pool
 	db                 *sql.DB
 	config             *Config
@@ -39,7 +43,7 @@ type Config struct {
 	IsSupportAccessKey bool // 是否支持访问密钥
 }
 
-func defaultGenerateUID() (uid, extra string) {
+func defaultGenerateUID() (uid, nickname, avatar, extra string) {
 	uid = uuidplus.NewV4().Base62()
 	return
 }
@@ -123,7 +127,7 @@ func (mgr *UserMgr) SetSendMobileCode(v func(mobile, code string) error) {
 }
 
 // SetGenerateUID ...
-func (mgr *UserMgr) SetGenerateUID(v func() (uid, extra string)) {
+func (mgr *UserMgr) SetGenerateUID(v func() (uid, nickname, avatar, extra string)) {
 	mgr.generateUID = v
 }
 
@@ -200,12 +204,12 @@ func (mgr *UserMgr) applyCode(content string) (code string, expire int, err erro
 	defer conn.Close()
 
 	codeKey := getCodeKey(mgr.name, code)
-	var rs string
-	rs, err = redigo.String(conn.Do("SET", codeKey, content, "EX", expire, "NX"))
+	var result string
+	result, err = redigo.String(conn.Do("SET", codeKey, content, "EX", expire, "NX"))
 	if err != nil {
 		return
 	}
-	if rs != "OK" {
+	if result != "OK" {
 		return "", 0, fmt.Errorf("code duplicate")
 	}
 	return
@@ -232,7 +236,36 @@ func (mgr *UserMgr) getPassword(rawPassword string) string {
 
 // RegisterLAPD 密码用户注册
 func (mgr *UserMgr) RegisterLAPD(uid, rawPassword string) (*User, error) {
-	return nil, nil
+	now := time.Now()
+	_, nickname, avatar, extra := mgr.generateUID()
+
+	data := &ModelUser{
+		UID:       uid,
+		Password:  mgr.getPassword(rawPassword),
+		Nickname:  nickname,
+		Avatar:    avatar,
+		Extra:     extra,
+		LastLogin: now,
+		Created:   now,
+		Updated:   now,
+	}
+
+	query, args := sqlplus.GenInsert(mgr.tableUser.Name, data)
+	result, err := mgr.db.Exec(query, args...)
+	if err != nil {
+		return nil, err
+	}
+
+	aid, _ := result.LastInsertId()
+
+	return &User{
+		ID:        int(aid),
+		UID:       uid,
+		Nickname:  nickname,
+		Avatar:    avatar,
+		LastLogin: now,
+		Created:   now,
+	}, nil
 }
 
 // RegisterEmailApplyCode 邮件用户注册申请code
@@ -241,7 +274,7 @@ func (mgr *UserMgr) RegisterEmailApplyCode() (code string, expire int, err error
 }
 
 // RegisterEmail 邮件用户注册
-func (mgr *UserMgr) RegisterEmail(uid, code string) (*User, error) {
+func (mgr *UserMgr) RegisterEmail(email, code string) (*User, error) {
 	ok, _, err := mgr.checkCode(code)
 	if err != nil {
 		return nil, err
@@ -249,7 +282,37 @@ func (mgr *UserMgr) RegisterEmail(uid, code string) (*User, error) {
 	if !ok {
 		return nil, fmt.Errorf("code is invalid")
 	}
-	return nil, nil
+
+	now := time.Now()
+	uid, nickname, avatar, extra := mgr.generateUID()
+	data := &ModelUser{
+		UID:       uid,
+		Email:     sql.NullString{Valid: true, String: email},
+		Nickname:  nickname,
+		Avatar:    avatar,
+		Extra:     extra,
+		LastLogin: now,
+		Created:   now,
+		Updated:   now,
+	}
+
+	query, args := sqlplus.GenInsert(mgr.tableUser.Name, data)
+	result, err := mgr.db.Exec(query, args...)
+	if err != nil {
+		return nil, err
+	}
+
+	aid, _ := result.LastInsertId()
+
+	return &User{
+		ID:        int(aid),
+		UID:       uid,
+		Email:     email,
+		Nickname:  nickname,
+		Avatar:    avatar,
+		LastLogin: now,
+		Created:   now,
+	}, nil
 }
 
 // RegisterMobileApplyCode 手机用户注册申请code
@@ -258,7 +321,7 @@ func (mgr *UserMgr) RegisterMobileApplyCode() (code string, expire int, err erro
 }
 
 // RegisterMobile 手机用户注册
-func (mgr *UserMgr) RegisterMobile(uid, code string) (*User, error) {
+func (mgr *UserMgr) RegisterMobile(mobile, code string) (*User, error) {
 	ok, _, err := mgr.checkCode(code)
 	if err != nil {
 		return nil, err
@@ -266,10 +329,136 @@ func (mgr *UserMgr) RegisterMobile(uid, code string) (*User, error) {
 	if !ok {
 		return nil, fmt.Errorf("code is invalid")
 	}
-	return nil, nil
+
+	now := time.Now()
+	uid, nickname, avatar, extra := mgr.generateUID()
+	data := &ModelUser{
+		UID:       uid,
+		Mobile:    sql.NullString{Valid: true, String: mobile},
+		Nickname:  nickname,
+		Avatar:    avatar,
+		Extra:     extra,
+		LastLogin: now,
+		Created:   now,
+		Updated:   now,
+	}
+
+	query, args := sqlplus.GenInsert(mgr.tableUser.Name, data)
+	result, err := mgr.db.Exec(query, args...)
+	if err != nil {
+		return nil, err
+	}
+
+	aid, _ := result.LastInsertId()
+
+	return &User{
+		ID:        int(aid),
+		UID:       uid,
+		Mobile:    mobile,
+		Nickname:  nickname,
+		Avatar:    avatar,
+		LastLogin: now,
+		Created:   now,
+	}, nil
 }
 
 // RegisterTourist 游客注册
-func (mgr *UserMgr) RegisterTourist(uid, rawPassword string) (*User, error) {
-	return nil, nil
+func (mgr *UserMgr) RegisterTourist() (*User, error) {
+	now := time.Now()
+	uid, nickname, avatar, extra := mgr.generateUID()
+	data := &ModelUser{
+		UID:       uid,
+		Nickname:  nickname,
+		Avatar:    avatar,
+		Extra:     extra,
+		LastLogin: now,
+		Created:   now,
+		Updated:   now,
+	}
+
+	query, args := sqlplus.GenInsert(mgr.tableUser.Name, data)
+	result, err := mgr.db.Exec(query, args...)
+	if err != nil {
+		return nil, err
+	}
+
+	aid, _ := result.LastInsertId()
+
+	return &User{
+		ID:        int(aid),
+		UID:       uid,
+		Nickname:  nickname,
+		Avatar:    avatar,
+		LastLogin: now,
+		Created:   now,
+	}, nil
+}
+
+// RegisterAuth 第三方注册
+func (mgr *UserMgr) RegisterAuth(nickname, avatar, authName, authUID, authExtra string) (*User, error) {
+	now := time.Now()
+	uid, _, _, _ := mgr.generateUID()
+
+	tx, err := mgr.db.Begin()
+	if err != nil {
+		return nil, err
+	}
+
+	data := &ModelUser{
+		UID:       uid,
+		Nickname:  nickname,
+		Avatar:    avatar,
+		LastLogin: now,
+		Created:   now,
+		Updated:   now,
+	}
+
+	query, args := sqlplus.GenInsert(mgr.tableUser.Name, data)
+	result, err := tx.Exec(query, args...)
+	if err != nil {
+		return nil, err
+	}
+
+	aid, _ := result.LastInsertId()
+
+	authData := &ModelUserAuth{
+		UID:       uid,
+		AuthName:  authName,
+		AuthUID:   authUID,
+		AuthExtra: authExtra,
+		Created:   now,
+		Updated:   now,
+	}
+	authQuery, authArgs := sqlplus.GenInsert(mgr.tableUserAuth.Name, authData)
+	authResult, err := tx.Exec(authQuery, authArgs...)
+	if err != nil {
+		return nil, err
+	}
+
+	aidAuth, _ := authResult.LastInsertId()
+
+	if err = tx.Commit(); err != nil {
+		if errRollback := tx.Rollback(); errRollback != nil {
+			mlogger.WarnN(gouser.MLoggerName, "RegisterAuth Rollback err: %v", errRollback)
+		}
+		return nil, err
+	}
+
+	return &User{
+		ID:        int(aid),
+		UID:       uid,
+		Nickname:  nickname,
+		Avatar:    avatar,
+		LastLogin: now,
+		Created:   now,
+		Auths: []*UserAuth{
+			&UserAuth{
+				ID:        int(aidAuth),
+				AuthName:  authName,
+				AuthUID:   authUID,
+				AuthExtra: authExtra,
+				Created:   now,
+			},
+		},
+	}, nil
 }

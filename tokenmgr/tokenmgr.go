@@ -12,6 +12,10 @@ import (
 	redigo "github.com/gomodule/redigo/redis"
 )
 
+const (
+	oldTokenExpire = 300
+)
+
 // TokenMgr Token管理器定义
 type TokenMgr interface {
 	Generate(uid, from string) (token string, deadline int64, err error) // 生成一个新的token
@@ -84,18 +88,18 @@ func (s *DefaultMgr) Generate(uid, from string) (token string, deadline int64, e
 		}
 	}
 
-	commandCount := 0
+	commands := []string{}
 	for oldToken, oldDeadline := range result {
 		if oldDeadline < latestDeadline || oldDeadline < now.Unix() {
 			if err = conn.Send("HDEL", tokenKey, oldToken); err != nil { // 废弃或过期的token全部删除
 				return
 			}
-			commandCount++
-		} else if oldDeadline > now.Unix()+300 {
-			if err = conn.Send("HSET", tokenKey, oldToken, now.Unix()+300); err != nil { // 未失效的token 5分钟后失效
+			commands = append(commands, fmt.Sprint("HDEL", tokenKey, oldToken))
+		} else if oldDeadline > now.Unix()+oldTokenExpire {
+			if err = conn.Send("HSET", tokenKey, oldToken, now.Unix()+oldTokenExpire); err != nil { // 未失效的token 5分钟后失效
 				return
 			}
-			commandCount++
+			commands = append(commands, fmt.Sprint("HSET", tokenKey, oldToken, now.Unix()+oldTokenExpire))
 		}
 	}
 
@@ -103,22 +107,22 @@ func (s *DefaultMgr) Generate(uid, from string) (token string, deadline int64, e
 	if err = conn.Send("EXPIREAT", tokenKey, deadline); err != nil {
 		return
 	}
-	commandCount++
+	commands = append(commands, fmt.Sprint("EXPIREAT", tokenKey, deadline))
 
 	// 设定token和deadline
 	if err = conn.Send("HSET", tokenKey, token, deadline); err != nil {
 		return
 	}
-	commandCount++
+	commands = append(commands, fmt.Sprint("HSET", tokenKey, token, deadline))
 
 	// 执行
 	if err = conn.Flush(); err != nil {
 		return
 	}
 
-	for i := 1; i < commandCount; i++ {
+	for i := 1; i < len(commands); i++ {
 		if _, err = conn.Receive(); err != nil {
-			mlogger.WarnN(gouser.MLoggerName, "Generate token err: command, %v/%v; err %v", i, commandCount, err)
+			mlogger.WarnN(gouser.MLoggerName, "Generate token err: %v, %v", commands[i], err)
 		}
 	}
 
