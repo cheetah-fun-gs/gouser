@@ -6,6 +6,7 @@ import (
 
 // User 用户
 type User struct {
+	mgr        *UserMgr
 	ID         int              `json:"id,omitempty"`
 	UID        string           `json:"uid,omitempty"`
 	Email      string           `json:"email,omitempty"`

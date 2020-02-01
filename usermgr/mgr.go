@@ -259,6 +259,7 @@ func (mgr *UserMgr) RegisterLAPD(uid, rawPassword string) (*User, error) {
 	aid, _ := result.LastInsertId()
 
 	return &User{
+		mgr:       mgr,
 		ID:        int(aid),
 		UID:       uid,
 		Nickname:  nickname,
@@ -305,6 +306,7 @@ func (mgr *UserMgr) RegisterEmail(email, code string) (*User, error) {
 	aid, _ := result.LastInsertId()
 
 	return &User{
+		mgr:       mgr,
 		ID:        int(aid),
 		UID:       uid,
 		Email:     email,
@@ -385,6 +387,7 @@ func (mgr *UserMgr) RegisterTourist() (*User, error) {
 	aid, _ := result.LastInsertId()
 
 	return &User{
+		mgr:       mgr,
 		ID:        int(aid),
 		UID:       uid,
 		Nickname:  nickname,
@@ -445,6 +448,7 @@ func (mgr *UserMgr) RegisterAuth(nickname, avatar, authName, authUID, authExtra 
 	}
 
 	return &User{
+		mgr:       mgr,
 		ID:        int(aid),
 		UID:       uid,
 		Nickname:  nickname,
