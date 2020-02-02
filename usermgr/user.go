@@ -97,3 +97,46 @@ func (user *User) BindAuth(authName, authUID, authExtra string) error {
 	})
 	return nil
 }
+
+// UpdateInfo 更新用户信息
+func (user *User) UpdateInfo(nickname, avatar, extra string) error {
+	now := time.Now()
+	query := fmt.Sprintf("UPDATE %v Set nickname = ?, avatar = ?, extra = ?, updated = ? WHERE id = ?;",
+		user.mgr.tableUser.Name)
+	args := []interface{}{nickname, avatar, extra, now, user.ID}
+	_, err := user.mgr.db.Exec(query, args...)
+	if err != nil {
+		return err
+	}
+
+	user.Nickname = nickname
+	user.Avatar = avatar
+	user.Extra = extra
+	return nil
+}
+
+// UpdateAuthInfo 更新第三方信息
+func (user *User) UpdateAuthInfo(authName, authExtra string) error {
+	var userAuth *UserAuth
+
+	for _, v := range user.Auths {
+		if v.AuthName == authName {
+			userAuth = v
+		}
+	}
+	if userAuth == nil {
+		return fmt.Errorf("auth not found: %v", authName)
+	}
+
+	now := time.Now()
+	query := fmt.Sprintf("UPDATE %v Set auth_extra = ?, updated = ? WHERE id = ?;",
+		user.mgr.tableUserAuth.Name)
+	args := []interface{}{authExtra, now, userAuth.ID}
+	_, err := user.mgr.db.Exec(query, args...)
+	if err != nil {
+		return err
+	}
+
+	userAuth.AuthExtra = authExtra
+	return nil
+}

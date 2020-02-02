@@ -35,6 +35,7 @@ type UserMgr struct {
 	db                 *sql.DB
 	config             *Config
 	name               string
+	secret             string // 密钥
 }
 
 // Config ...
@@ -69,7 +70,7 @@ func getCodeKey(name, code string) string {
 }
 
 // New 一个新的用户管理器
-func New(name string, pool *redigo.Pool, db *sql.DB, args ...interface{}) *UserMgr {
+func New(name, secret string, pool *redigo.Pool, db *sql.DB, args ...interface{}) *UserMgr {
 	var config *Config
 	if len(args) > 0 {
 		config = args[0].(*Config)
@@ -81,6 +82,7 @@ func New(name string, pool *redigo.Pool, db *sql.DB, args ...interface{}) *UserM
 
 	mgr := &UserMgr{
 		name:     name,
+		secret:   secret,
 		config:   config,
 		pool:     pool,
 		db:       db,
@@ -231,7 +233,7 @@ func (mgr *UserMgr) checkCode(code string) (ok bool, content string, err error) 
 }
 
 func (mgr *UserMgr) getPassword(rawPassword string) string {
-	return uuidplus.NewV5(mgr.name, rawPassword).Base62()
+	return uuidplus.NewV5(mgr.secret, rawPassword).Base62()
 }
 
 // RegisterLAPD 密码用户注册

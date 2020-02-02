@@ -37,8 +37,8 @@ const (
 		created datetime NOT NULL COMMENT '创建时间',
 		updated datetime NOT NULL COMMENT '更新时间',
 		PRIMARY KEY (id),
-		UNIQUE KEY uniq_auth_uid (auth_uid),
 		UNIQUE KEY uniq_uid_auth_name (uid,auth_name),
+		KEY idx_auth_uid (auth_uid),
 		KEY idx_created (created),
 		KEY idx_updated (updated)
 	  ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COMMENT='第三方认证表'`
