@@ -95,6 +95,29 @@ func (user *User) BindAuth(authName, authUID, authExtra string) error {
 	return nil
 }
 
+// UnbindAuth 解绑第三方认证
+func (user *User) UnbindAuth(authName string) error {
+	query := fmt.Sprintf("DELETE FROM %v WHERE uid = ? AND auth_name = ?;",
+		user.mgr.tableUserAuth.Name)
+	args := []interface{}{user.UID, authName}
+	updateCount, err := sqlplus.RowsAffected(user.mgr.db.Exec(query, args...))
+	if err != nil {
+		return err
+	}
+	if updateCount == 0 {
+		return ErrorNotFound
+	}
+
+	auths := []*UserAuth{}
+	for _, v := range user.Auths {
+		if v.AuthName != authName {
+			auths = append(auths, v)
+		}
+	}
+	user.Auths = auths
+	return nil
+}
+
 // UpdateInfo 更新用户信息
 func (user *User) UpdateInfo(nickname, avatar, extra string) error {
 	now := time.Now()
