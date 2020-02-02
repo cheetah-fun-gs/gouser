@@ -1,7 +1,12 @@
 package usermgr
 
 import (
+	"fmt"
 	"time"
+
+	sqlplus "github.com/cheetah-fun-gs/goplus/dao/sql"
+	mlogger "github.com/cheetah-fun-gs/goplus/multier/multilogger"
+	"github.com/cheetah-fun-gs/gouser"
 )
 
 // User 用户
@@ -36,4 +41,59 @@ type UserAccessKey struct {
 	ExpireAt  time.Time `json:"expire_at,omitempty"`
 	Comment   string    `json:"comment,omitempty"`
 	Created   time.Time `json:"created,omitempty"`
+}
+
+// Login 登录
+func (user *User) Login(from string) (token string, deadline int64, err error) {
+	token, deadline, err = user.mgr.tokenmgr.Generate(user.UID, from)
+	if err != nil {
+		return
+	}
+
+	now := time.Now()
+	query := fmt.Sprintf("UPDATE %v Set last_login = ?, updated = ? WHERE id = ?;",
+		user.mgr.tableUser.Name)
+	args := []interface{}{now, now, user.ID}
+	_, errUpdate := user.mgr.db.Exec(query, args...)
+	if errUpdate != nil {
+		mlogger.WarnN(gouser.MLoggerName, "UserLogin Update err: %v", errUpdate)
+	}
+	return
+}
+
+// Logout 登出
+func (user *User) Logout(from, token string) error {
+	return user.mgr.tokenmgr.Clean(user.UID, from, token)
+}
+
+// BindAuth 绑定第三方认证
+func (user *User) BindAuth(authName, authUID, authExtra string) error {
+	now := time.Now()
+	authData := &ModelUserAuth{
+		UID:       user.UID,
+		AuthName:  authName,
+		AuthUID:   authUID,
+		AuthExtra: authExtra,
+		Created:   now,
+		Updated:   now,
+	}
+	authQuery, authArgs := sqlplus.GenInsert(user.mgr.tableUserAuth.Name, authData)
+	authResult, err := user.mgr.db.Exec(authQuery, authArgs...)
+	if err != nil {
+		return err
+	}
+
+	aidAuth, err := authResult.LastInsertId()
+	if err != nil {
+		return err
+	}
+
+	user.Auths = append(user.Auths, &UserAuth{
+		ID:        int(aidAuth),
+		AuthName:  authName,
+		AuthUID:   authUID,
+		AuthExtra: authExtra,
+		Created:   now,
+	})
+	return nil
 }

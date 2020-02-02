@@ -256,7 +256,10 @@ func (mgr *UserMgr) RegisterLAPD(uid, rawPassword string) (*User, error) {
 		return nil, err
 	}
 
-	aid, _ := result.LastInsertId()
+	aid, err := result.LastInsertId()
+	if err != nil {
+		return nil, err
+	}
 
 	return &User{
 		mgr:       mgr,
@@ -303,7 +306,10 @@ func (mgr *UserMgr) RegisterEmail(email, code string) (*User, error) {
 		return nil, err
 	}
 
-	aid, _ := result.LastInsertId()
+	aid, err := result.LastInsertId()
+	if err != nil {
+		return nil, err
+	}
 
 	return &User{
 		mgr:       mgr,
@@ -351,7 +357,10 @@ func (mgr *UserMgr) RegisterMobile(mobile, code string) (*User, error) {
 		return nil, err
 	}
 
-	aid, _ := result.LastInsertId()
+	aid, err := result.LastInsertId()
+	if err != nil {
+		return nil, err
+	}
 
 	return &User{
 		ID:        int(aid),
@@ -384,7 +393,10 @@ func (mgr *UserMgr) RegisterTourist() (*User, error) {
 		return nil, err
 	}
 
-	aid, _ := result.LastInsertId()
+	aid, err := result.LastInsertId()
+	if err != nil {
+		return nil, err
+	}
 
 	return &User{
 		mgr:       mgr,
@@ -422,7 +434,10 @@ func (mgr *UserMgr) RegisterAuth(nickname, avatar, authName, authUID, authExtra 
 		return nil, err
 	}
 
-	aid, _ := result.LastInsertId()
+	aid, err := result.LastInsertId()
+	if err != nil {
+		return nil, err
+	}
 
 	authData := &ModelUserAuth{
 		UID:       uid,
@@ -438,7 +453,10 @@ func (mgr *UserMgr) RegisterAuth(nickname, avatar, authName, authUID, authExtra 
 		return nil, err
 	}
 
-	aidAuth, _ := authResult.LastInsertId()
+	aidAuth, err := authResult.LastInsertId()
+	if err != nil {
+		return nil, err
+	}
 
 	if err = tx.Commit(); err != nil {
 		if errRollback := tx.Rollback(); errRollback != nil {
