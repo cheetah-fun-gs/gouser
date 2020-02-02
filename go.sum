@@ -12,6 +12,8 @@ github.com/cheetah-fun-gs/goplus v1.0.9 h1:TaneSoCHAle60qARVtY87gJNAz9WnGerF9t6G
 github.com/cheetah-fun-gs/goplus v1.0.9/go.mod h1:2neZA0pewf2UiK4VSNYr/tUOvBojVvV3O6j7iS1I8vE=
 github.com/cheetah-fun-gs/goplus v1.0.11 h1:tXmfOabFtrMgVkAKQuMMH0WdIWBwm3Q1mR5DlDozkyY=
 github.com/cheetah-fun-gs/goplus v1.0.11/go.mod h1:MNEHS4XGeCFcsZdI+fdM2HR8wuubU1AP/dqsAXzAmb8=
+github.com/cheetah-fun-gs/goplus v1.1.0 h1:kNIgL6XsCoPMb7v0eOd50A1Aj0JMweK9v1/VeJ12TuQ=
+github.com/cheetah-fun-gs/goplus v1.1.0/go.mod h1:MNEHS4XGeCFcsZdI+fdM2HR8wuubU1AP/dqsAXzAmb8=
 github.com/client9/misspell v0.3.4/go.mod h1:qj6jICC3Q7zFZvVWo7KLAzC3yx5G7kyvSDkc90ppPyw=
 github.com/coreos/bbolt v1.3.2/go.mod h1:iRUV2dpdMOn7Bo10OQBFzIJO9kkE559Wcmn+qkEiiKk=
 github.com/coreos/etcd v3.3.10+incompatible/go.mod h1:uF7uidLiAD3TWHmW31ZFd/JWoc32PjwdhPthX9715RE=

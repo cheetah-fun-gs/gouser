@@ -253,12 +253,7 @@ func (mgr *UserMgr) RegisterLAPD(uid, rawPassword string) (*User, error) {
 	}
 
 	query, args := sqlplus.GenInsert(mgr.tableUser.Name, data)
-	result, err := mgr.db.Exec(query, args...)
-	if err != nil {
-		return nil, err
-	}
-
-	aid, err := result.LastInsertId()
+	aid, err := sqlplus.LastInsertId(mgr.db.Exec(query, args...))
 	if err != nil {
 		return nil, err
 	}
@@ -303,12 +298,7 @@ func (mgr *UserMgr) RegisterEmail(email, code string) (*User, error) {
 	}
 
 	query, args := sqlplus.GenInsert(mgr.tableUser.Name, data)
-	result, err := mgr.db.Exec(query, args...)
-	if err != nil {
-		return nil, err
-	}
-
-	aid, err := result.LastInsertId()
+	aid, err := sqlplus.LastInsertId(mgr.db.Exec(query, args...))
 	if err != nil {
 		return nil, err
 	}
@@ -354,12 +344,7 @@ func (mgr *UserMgr) RegisterMobile(mobile, code string) (*User, error) {
 	}
 
 	query, args := sqlplus.GenInsert(mgr.tableUser.Name, data)
-	result, err := mgr.db.Exec(query, args...)
-	if err != nil {
-		return nil, err
-	}
-
-	aid, err := result.LastInsertId()
+	aid, err := sqlplus.LastInsertId(mgr.db.Exec(query, args...))
 	if err != nil {
 		return nil, err
 	}
@@ -390,12 +375,7 @@ func (mgr *UserMgr) RegisterTourist() (*User, error) {
 	}
 
 	query, args := sqlplus.GenInsert(mgr.tableUser.Name, data)
-	result, err := mgr.db.Exec(query, args...)
-	if err != nil {
-		return nil, err
-	}
-
-	aid, err := result.LastInsertId()
+	aid, err := sqlplus.LastInsertId(mgr.db.Exec(query, args...))
 	if err != nil {
 		return nil, err
 	}
@@ -431,12 +411,7 @@ func (mgr *UserMgr) RegisterAuth(nickname, avatar, authName, authUID, authExtra 
 	}
 
 	query, args := sqlplus.GenInsert(mgr.tableUser.Name, data)
-	result, err := tx.Exec(query, args...)
-	if err != nil {
-		return nil, err
-	}
-
-	aid, err := result.LastInsertId()
+	aid, err := sqlplus.LastInsertId(tx.Exec(query, args...))
 	if err != nil {
 		return nil, err
 	}
@@ -450,12 +425,7 @@ func (mgr *UserMgr) RegisterAuth(nickname, avatar, authName, authUID, authExtra 
 		Updated:   now,
 	}
 	authQuery, authArgs := sqlplus.GenInsert(mgr.tableUserAuth.Name, authData)
-	authResult, err := tx.Exec(authQuery, authArgs...)
-	if err != nil {
-		return nil, err
-	}
-
-	aidAuth, err := authResult.LastInsertId()
+	aidAuth, err := sqlplus.LastInsertId(tx.Exec(authQuery, authArgs...))
 	if err != nil {
 		return nil, err
 	}

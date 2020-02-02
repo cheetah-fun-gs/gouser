@@ -54,9 +54,11 @@ func (user *User) Login(from string) (token string, deadline int64, err error) {
 	query := fmt.Sprintf("UPDATE %v Set last_login = ?, updated = ? WHERE id = ?;",
 		user.mgr.tableUser.Name)
 	args := []interface{}{now, now, user.ID}
-	_, errUpdate := user.mgr.db.Exec(query, args...)
+	updatedCount, errUpdate := sqlplus.RowsAffected(user.mgr.db.Exec(query, args...))
 	if errUpdate != nil {
 		mlogger.WarnN(gouser.MLoggerName, "UserLogin Update err: %v", errUpdate)
+	} else if updatedCount == 0 {
+		mlogger.WarnN(gouser.MLoggerName, "UserLogin Update err: no RowsAffected")
 	}
 	return
 }
@@ -78,12 +80,7 @@ func (user *User) BindAuth(authName, authUID, authExtra string) error {
 		Updated:   now,
 	}
 	authQuery, authArgs := sqlplus.GenInsert(user.mgr.tableUserAuth.Name, authData)
-	authResult, err := user.mgr.db.Exec(authQuery, authArgs...)
-	if err != nil {
-		return err
-	}
-
-	aidAuth, err := authResult.LastInsertId()
+	aidAuth, err := sqlplus.LastInsertId(user.mgr.db.Exec(authQuery, authArgs...))
 	if err != nil {
 		return err
 	}
@@ -104,9 +101,12 @@ func (user *User) UpdateInfo(nickname, avatar, extra string) error {
 	query := fmt.Sprintf("UPDATE %v Set nickname = ?, avatar = ?, extra = ?, updated = ? WHERE id = ?;",
 		user.mgr.tableUser.Name)
 	args := []interface{}{nickname, avatar, extra, now, user.ID}
-	_, err := user.mgr.db.Exec(query, args...)
+	updateCount, err := sqlplus.RowsAffected(user.mgr.db.Exec(query, args...))
 	if err != nil {
 		return err
+	}
+	if updateCount == 0 {
+		return fmt.Errorf("no RowsAffected")
 	}
 
 	user.Nickname = nickname
@@ -132,9 +132,12 @@ func (user *User) UpdateAuthInfo(authName, authExtra string) error {
 	query := fmt.Sprintf("UPDATE %v Set auth_extra = ?, updated = ? WHERE id = ?;",
 		user.mgr.tableUserAuth.Name)
 	args := []interface{}{authExtra, now, userAuth.ID}
-	_, err := user.mgr.db.Exec(query, args...)
+	updateCount, err := sqlplus.RowsAffected(user.mgr.db.Exec(query, args...))
 	if err != nil {
 		return err
+	}
+	if updateCount == 0 {
+		return fmt.Errorf("no RowsAffected")
 	}
 
 	userAuth.AuthExtra = authExtra
@@ -146,9 +149,12 @@ func (user *User) UpdateUID(uid string) error {
 	now := time.Now()
 	query := fmt.Sprintf("UPDATE %v Set uid = ?, updated = ? WHERE id = ?;", user.mgr.tableUser.Name)
 	args := []interface{}{uid, now, user.ID}
-	_, err := user.mgr.db.Exec(query, args...)
+	updateCount, err := sqlplus.RowsAffected(user.mgr.db.Exec(query, args...))
 	if err != nil {
 		return err
+	}
+	if updateCount == 0 {
+		return fmt.Errorf("no RowsAffected")
 	}
 
 	user.UID = uid
@@ -173,9 +179,12 @@ func (user *User) UpdateEmail(email, code string) error {
 	now := time.Now()
 	query := fmt.Sprintf("UPDATE %v Set email = ?, updated = ? WHERE id = ?;", user.mgr.tableUser.Name)
 	args := []interface{}{email, now, user.ID}
-	_, err = user.mgr.db.Exec(query, args...)
+	updateCount, err := sqlplus.RowsAffected(user.mgr.db.Exec(query, args...))
 	if err != nil {
 		return err
+	}
+	if updateCount == 0 {
+		return fmt.Errorf("no RowsAffected")
 	}
 
 	user.Email = email
@@ -200,11 +209,60 @@ func (user *User) UpdateMobile(mobile, code string) error {
 	now := time.Now()
 	query := fmt.Sprintf("UPDATE %v Set mobile = ?, updated = ? WHERE id = ?;", user.mgr.tableUser.Name)
 	args := []interface{}{mobile, now, user.ID}
-	_, err = user.mgr.db.Exec(query, args...)
+	updateCount, err := sqlplus.RowsAffected(user.mgr.db.Exec(query, args...))
 	if err != nil {
 		return err
 	}
+	if updateCount == 0 {
+		return fmt.Errorf("no RowsAffected")
+	}
 
 	user.Mobile = mobile
+	return nil
+}
+
+// UpdatePasswordApplyCode 更改密码申请code
+func (user *User) UpdatePasswordApplyCode() (code string, expire int, err error) {
+	return user.mgr.applyCode("UpdatePassword")
+}
+
+// UpdatePasswordWithCode 通过验证码更改密码
+func (user *User) UpdatePasswordWithCode(rawPassword, code string) error {
+	ok, _, err := user.mgr.checkCode(code)
+	if err != nil {
+		return err
+	}
+	if !ok {
+		return fmt.Errorf("code is invalid")
+	}
+
+	password := user.mgr.getPassword(rawPassword)
+	now := time.Now()
+	query := fmt.Sprintf("UPDATE %v Set password = ?, updated = ? WHERE id = ?;", user.mgr.tableUser.Name)
+	args := []interface{}{password, now, user.ID}
+	updateCount, err := sqlplus.RowsAffected(user.mgr.db.Exec(query, args...))
+	if err != nil {
+		return err
+	}
+	if updateCount == 0 {
+		return fmt.Errorf("no RowsAffected")
+	}
+	return nil
+}
+
+// UpdatePasswordWithPassword 通过旧密码更改密码
+func (user *User) UpdatePasswordWithPassword(oldRawPassword, newRawPassword string) error {
+	oldPassword := user.mgr.getPassword(oldRawPassword)
+	newPassword := user.mgr.getPassword(newRawPassword)
+	now := time.Now()
+	query := fmt.Sprintf("UPDATE %v Set password = ?, updated = ? WHERE id = ? AND password = ?;", user.mgr.tableUser.Name)
+	args := []interface{}{newPassword, now, user.ID, oldPassword}
+	updateCount, err := sqlplus.RowsAffected(user.mgr.db.Exec(query, args...))
+	if err != nil {
+		return err
+	}
+	if updateCount == 0 {
+		return fmt.Errorf("no RowsAffected")
+	}
 	return nil
 }
