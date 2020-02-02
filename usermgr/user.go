@@ -140,3 +140,71 @@ func (user *User) UpdateAuthInfo(authName, authExtra string) error {
 	userAuth.AuthExtra = authExtra
 	return nil
 }
+
+// UpdateUID 更新uid
+func (user *User) UpdateUID(uid string) error {
+	now := time.Now()
+	query := fmt.Sprintf("UPDATE %v Set uid = ?, updated = ? WHERE id = ?;", user.mgr.tableUser.Name)
+	args := []interface{}{uid, now, user.ID}
+	_, err := user.mgr.db.Exec(query, args...)
+	if err != nil {
+		return err
+	}
+
+	user.UID = uid
+	return nil
+}
+
+// UpdateEmailApplyCode 更新邮箱申请code
+func (user *User) UpdateEmailApplyCode() (code string, expire int, err error) {
+	return user.mgr.applyCode("UpdateEmail")
+}
+
+// UpdateEmail 更新uid
+func (user *User) UpdateEmail(email, code string) error {
+	ok, _, err := user.mgr.checkCode(code)
+	if err != nil {
+		return err
+	}
+	if !ok {
+		return fmt.Errorf("code is invalid")
+	}
+
+	now := time.Now()
+	query := fmt.Sprintf("UPDATE %v Set email = ?, updated = ? WHERE id = ?;", user.mgr.tableUser.Name)
+	args := []interface{}{email, now, user.ID}
+	_, err = user.mgr.db.Exec(query, args...)
+	if err != nil {
+		return err
+	}
+
+	user.Email = email
+	return nil
+}
+
+// UpdateMobileApplyCode 更新手机号申请code
+func (user *User) UpdateMobileApplyCode() (code string, expire int, err error) {
+	return user.mgr.applyCode("UpdateMobile")
+}
+
+// UpdateMobile 更新手机号
+func (user *User) UpdateMobile(mobile, code string) error {
+	ok, _, err := user.mgr.checkCode(code)
+	if err != nil {
+		return err
+	}
+	if !ok {
+		return fmt.Errorf("code is invalid")
+	}
+
+	now := time.Now()
+	query := fmt.Sprintf("UPDATE %v Set mobile = ?, updated = ? WHERE id = ?;", user.mgr.tableUser.Name)
+	args := []interface{}{mobile, now, user.ID}
+	_, err = user.mgr.db.Exec(query, args...)
+	if err != nil {
+		return err
+	}
+
+	user.Mobile = mobile
+	return nil
+}
