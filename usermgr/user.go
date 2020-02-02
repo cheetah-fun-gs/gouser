@@ -58,7 +58,7 @@ func (user *User) Login(from string) (token string, deadline int64, err error) {
 	if errUpdate != nil {
 		mlogger.WarnN(gouser.MLoggerName, "UserLogin Update err: %v", errUpdate)
 	} else if updatedCount == 0 {
-		mlogger.WarnN(gouser.MLoggerName, "UserLogin Update err: no RowsAffected")
+		mlogger.WarnN(gouser.MLoggerName, "UserLogin Update err: not found")
 	}
 	return
 }
@@ -106,7 +106,7 @@ func (user *User) UpdateInfo(nickname, avatar, extra string) error {
 		return err
 	}
 	if updateCount == 0 {
-		return fmt.Errorf("no RowsAffected")
+		return ErrorNotFound
 	}
 
 	user.Nickname = nickname
@@ -137,7 +137,7 @@ func (user *User) UpdateAuthInfo(authName, authExtra string) error {
 		return err
 	}
 	if updateCount == 0 {
-		return fmt.Errorf("no RowsAffected")
+		return ErrorNotFound
 	}
 
 	userAuth.AuthExtra = authExtra
@@ -154,7 +154,7 @@ func (user *User) UpdateUID(uid string) error {
 		return err
 	}
 	if updateCount == 0 {
-		return fmt.Errorf("no RowsAffected")
+		return ErrorNotFound
 	}
 
 	user.UID = uid
@@ -184,7 +184,7 @@ func (user *User) UpdateEmail(email, code string) error {
 		return err
 	}
 	if updateCount == 0 {
-		return fmt.Errorf("no RowsAffected")
+		return ErrorNotFound
 	}
 
 	user.Email = email
@@ -214,7 +214,7 @@ func (user *User) UpdateMobile(mobile, code string) error {
 		return err
 	}
 	if updateCount == 0 {
-		return fmt.Errorf("no RowsAffected")
+		return ErrorNotFound
 	}
 
 	user.Mobile = mobile
@@ -245,7 +245,7 @@ func (user *User) UpdatePasswordWithCode(rawPassword, code string) error {
 		return err
 	}
 	if updateCount == 0 {
-		return fmt.Errorf("no RowsAffected")
+		return ErrorNotFound
 	}
 	return nil
 }
@@ -262,7 +262,7 @@ func (user *User) UpdatePasswordWithPassword(oldRawPassword, newRawPassword stri
 		return err
 	}
 	if updateCount == 0 {
-		return fmt.Errorf("no RowsAffected")
+		return ErrorNotFound
 	}
 	return nil
 }
