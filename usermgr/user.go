@@ -68,6 +68,54 @@ func (user *User) Logout(from, token string) error {
 	return user.mgr.tokenmgr.Clean(user.UID, from, token)
 }
 
+// Clean 清除账号
+func (user *User) Clean() error {
+	if len(user.mgr.authMgrs) == 0 && !user.mgr.config.IsSupportAccessKey {
+		query := fmt.Sprintf("DELETE FROM %v WHERE id = ?;", user.mgr.tableUser.Name)
+		args := []interface{}{user.ID}
+		_, err := user.mgr.db.Exec(query, args...)
+		return err
+	}
+
+	tx, err := user.mgr.db.Begin()
+	if err != nil {
+		return err
+	}
+
+	query := fmt.Sprintf("DELETE FROM %v WHERE id = ?;", user.mgr.tableUser.Name)
+	args := []interface{}{user.ID}
+	_, err = user.mgr.db.Exec(query, args...)
+	if err != nil {
+		return err
+	}
+
+	if len(user.mgr.authMgrs) > 0 {
+		queryAuth := fmt.Sprintf("DELETE FROM %v WHERE uid = ?;", user.mgr.tableUserAuth.Name)
+		argsAuth := []interface{}{user.UID}
+		_, err = user.mgr.db.Exec(queryAuth, argsAuth...)
+		if err != nil {
+			return err
+		}
+	}
+
+	if user.mgr.config.IsSupportAccessKey {
+		queryAccessKey := fmt.Sprintf("DELETE FROM %v WHERE uid = ?;", user.mgr.tableUserAccessKey.Name)
+		argsAccessKey := []interface{}{user.UID}
+		_, err = user.mgr.db.Exec(queryAccessKey, argsAccessKey...)
+		if err != nil {
+			return err
+		}
+	}
+
+	if err = tx.Commit(); err != nil {
+		if errRollback := tx.Rollback(); errRollback != nil {
+			mlogger.WarnN(gouser.MLoggerName, "UserClean Rollback err: %v", errRollback)
+		}
+		return err
+	}
+	return nil
+}
+
 // BindAuth 绑定第三方认证
 func (user *User) BindAuth(authName, authUID, authExtra string) error {
 	now := time.Now()
