@@ -70,14 +70,15 @@ func getCodeKey(name, code string) string {
 }
 
 // New 一个新的用户管理器
-func New(name, secret string, pool *redigo.Pool, db *sql.DB, args ...interface{}) *UserMgr {
+func New(name, secret string, pool *redigo.Pool, db *sql.DB, configs ...Config) *UserMgr {
 	var config *Config
-	if len(args) > 0 {
-		config = args[0].(*Config)
+	if len(configs) == 0 {
+		config = &Config{}
 	} else {
-		config = &Config{
-			TokenExpire: 3600 * 2,
-		}
+		config = &configs[0]
+	}
+	if config.TokenExpire == 0 {
+		config.TokenExpire = 3600 * 2
 	}
 
 	mgr := &UserMgr{
@@ -264,8 +265,8 @@ func (mgr *UserMgr) RegisterLAPD(uid, rawPassword string) (*User, error) {
 		UID:       uid,
 		Nickname:  nickname,
 		Avatar:    avatar,
-		LastLogin: now,
-		Created:   now,
+		LastLogin: now.Unix(),
+		Created:   now.Unix(),
 	}, nil
 }
 
@@ -310,8 +311,8 @@ func (mgr *UserMgr) RegisterEmail(email, code string) (*User, error) {
 		Email:     email,
 		Nickname:  nickname,
 		Avatar:    avatar,
-		LastLogin: now,
-		Created:   now,
+		LastLogin: now.Unix(),
+		Created:   now.Unix(),
 	}, nil
 }
 
@@ -355,8 +356,8 @@ func (mgr *UserMgr) RegisterMobile(mobile, code string) (*User, error) {
 		Mobile:    mobile,
 		Nickname:  nickname,
 		Avatar:    avatar,
-		LastLogin: now,
-		Created:   now,
+		LastLogin: now.Unix(),
+		Created:   now.Unix(),
 	}, nil
 }
 
@@ -386,8 +387,8 @@ func (mgr *UserMgr) RegisterTourist() (*User, error) {
 		UID:       uid,
 		Nickname:  nickname,
 		Avatar:    avatar,
-		LastLogin: now,
-		Created:   now,
+		LastLogin: now.Unix(),
+		Created:   now.Unix(),
 	}, nil
 }
 
@@ -443,15 +444,15 @@ func (mgr *UserMgr) RegisterAuth(nickname, avatar, authName, authUID, authExtra 
 		UID:       uid,
 		Nickname:  nickname,
 		Avatar:    avatar,
-		LastLogin: now,
-		Created:   now,
+		LastLogin: now.Unix(),
+		Created:   now.Unix(),
 		Auths: []*UserAuth{
 			&UserAuth{
 				ID:        int(aidAuth),
 				AuthName:  authName,
 				AuthUID:   authUID,
 				AuthExtra: authExtra,
-				Created:   now,
+				Created:   now.Unix(),
 			},
 		},
 	}, nil
