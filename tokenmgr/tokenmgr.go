@@ -28,7 +28,9 @@ type DefaultMgr struct {
 	generateToken func(uid, from string) string
 }
 
-// New ...
+// New 获得一个新的token管理器
+// expires[0]: expire1 凭证的超时时间, 不宜太短应该比expire2长, 默认1小时
+// expires[1]: expire2 被刷新凭证的保留时间, 不宜太长, 可为0, 默认10分钟
 func New(name string, pool *redigo.Pool, expires ...int) *DefaultMgr {
 	mgr := &DefaultMgr{
 		name:          name,
@@ -37,13 +39,14 @@ func New(name string, pool *redigo.Pool, expires ...int) *DefaultMgr {
 		expire2:       300,
 		generateToken: defaultGenerateToken,
 	}
-	if len(expires) == 1 && expires[0] != 0 {
+	if len(expires) >= 1 && expires[0] != 0 {
 		mgr.expire1 = expires[0]
-	} else if len(expires) == 2 {
-		if expires[0] != 0 {
-			mgr.expire1 = expires[0]
-		}
+	}
+	if len(expires) == 2 {
 		mgr.expire2 = expires[1]
+	}
+	if mgr.expire1 <= mgr.expire2 {
+		panic("expire1 is below expire2")
 	}
 	return mgr
 }
