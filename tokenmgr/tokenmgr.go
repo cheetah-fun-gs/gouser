@@ -12,10 +12,6 @@ import (
 	redigo "github.com/gomodule/redigo/redis"
 )
 
-const (
-	oldTokenExpire = 300
-)
-
 // TokenMgr Token管理器定义
 type TokenMgr interface {
 	Generate(uid, from string) (token string, deadline int64, err error) // 生成一个新的token
@@ -26,19 +22,30 @@ type TokenMgr interface {
 // DefaultMgr 默认管理器
 type DefaultMgr struct {
 	name          string // 管理器名称
-	expire        int    // 凭证的有效时间 应该大于5分钟
+	expire1       int    // 凭证的超时时间, 不宜太短应该比expire2长
+	expire2       int    // 被刷新凭证的保留时间, 不宜太长, 可为0
 	pool          *redigo.Pool
 	generateToken func(uid, from string) string
 }
 
 // New ...
-func New(name string, pool *redigo.Pool, expire int) *DefaultMgr {
-	return &DefaultMgr{
+func New(name string, pool *redigo.Pool, expires ...int) *DefaultMgr {
+	mgr := &DefaultMgr{
 		name:          name,
 		pool:          pool,
-		expire:        expire,
+		expire1:       3600,
+		expire2:       300,
 		generateToken: defaultGenerateToken,
 	}
+	if len(expires) == 1 && expires[0] != 0 {
+		mgr.expire1 = expires[0]
+	} else if len(expires) == 2 {
+		if expires[0] != 0 {
+			mgr.expire1 = expires[0]
+		}
+		mgr.expire2 = expires[1]
+	}
+	return mgr
 }
 
 // SetGenerateToken 设置token方法
@@ -73,7 +80,7 @@ func (s *DefaultMgr) Generate(uid, from string) (token string, deadline int64, e
 
 	now := time.Now()
 	token = s.generateToken(uid, from)
-	deadline = now.Unix() + int64(s.expire)
+	deadline = now.Unix() + int64(s.expire1)
 
 	var result map[string]int64
 	result, err = redigo.Int64Map(conn.Do("HGETALL", tokenKey))
@@ -95,11 +102,11 @@ func (s *DefaultMgr) Generate(uid, from string) (token string, deadline int64, e
 				return
 			}
 			commands = append(commands, fmt.Sprint("HDEL", tokenKey, oldToken))
-		} else if oldDeadline > now.Unix()+oldTokenExpire {
-			if err = conn.Send("HSET", tokenKey, oldToken, now.Unix()+oldTokenExpire); err != nil { // 未失效的token 5分钟后失效
+		} else if oldDeadline > now.Unix()+int64(s.expire2) {
+			if err = conn.Send("HSET", tokenKey, oldToken, now.Unix()+int64(s.expire2)); err != nil { // 未失效的token 5分钟后失效
 				return
 			}
-			commands = append(commands, fmt.Sprint("HSET", tokenKey, oldToken, now.Unix()+oldTokenExpire))
+			commands = append(commands, fmt.Sprint("HSET", tokenKey, oldToken, now.Unix()+int64(s.expire2)))
 		}
 	}
 

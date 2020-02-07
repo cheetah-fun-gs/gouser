@@ -61,7 +61,7 @@ func defaultSendMobileCode(mobile, code string) error {
 	return nil
 }
 
-func defaultGenerateCode() (string, int) {
+func defaultGenerateCode() (code string, expire int) {
 	return "", 600
 }
 
@@ -456,4 +456,14 @@ func (mgr *UserMgr) RegisterAuth(nickname, avatar, authName, authUID, authExtra 
 			},
 		},
 	}, nil
+}
+
+// VerifyToken 验证token
+func (mgr *UserMgr) VerifyToken(uid, from, token string) (ok bool, err error) {
+	return mgr.tokenmgr.Verify(uid, from, token)
+}
+
+// VerifySign 验证sign: sign由access key和请求数据(或请求数据部分字段)计算得到
+func (mgr *UserMgr) VerifySign(uid string, accessKeyID int, data interface{}, sign string) (ok bool, err error) {
+	return
 }
