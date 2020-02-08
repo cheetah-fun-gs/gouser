@@ -111,38 +111,38 @@ func New(name, secret string, pool *redigo.Pool, db *sql.DB, configs ...Config) 
 }
 
 // SetAuthMgr 设置第三方认证
-func (mgr *UserMgr) SetAuthMgr(v ...authmgr.AuthMgr) {
-	mgr.authMgrs = v
+func (mgr *UserMgr) SetAuthMgr(args ...authmgr.AuthMgr) {
+	mgr.authMgrs = args
 }
 
 // SetTokenMgr 设置token管理器
-func (mgr *UserMgr) SetTokenMgr(v tokenmgr.TokenMgr) {
-	mgr.tokenmgr = v
+func (mgr *UserMgr) SetTokenMgr(arg tokenmgr.TokenMgr) {
+	mgr.tokenmgr = arg
 }
 
 // SetSendEmailCode ...
-func (mgr *UserMgr) SetSendEmailCode(v func(email, code string) error) {
-	mgr.sendEmailCode = v
+func (mgr *UserMgr) SetSendEmailCode(arg func(email, code string) error) {
+	mgr.sendEmailCode = arg
 }
 
 // SetSendMobileCode ...
-func (mgr *UserMgr) SetSendMobileCode(v func(mobile, code string) error) {
-	mgr.sendMobileCode = v
+func (mgr *UserMgr) SetSendMobileCode(arg func(mobile, code string) error) {
+	mgr.sendMobileCode = arg
 }
 
 // SetGenerateUID ...
-func (mgr *UserMgr) SetGenerateUID(v func() (uid, nickname, avatar, extra string)) {
-	mgr.generateUID = v
+func (mgr *UserMgr) SetGenerateUID(arg func() (uid, nickname, avatar, extra string)) {
+	mgr.generateUID = arg
 }
 
 // SetGenerateCode ...
-func (mgr *UserMgr) SetGenerateCode(v func() (code string, expire int)) {
-	mgr.generateCode = v
+func (mgr *UserMgr) SetGenerateCode(arg func() (code string, expire int)) {
+	mgr.generateCode = arg
 }
 
 // SetGenerateAccessKey ...
-func (mgr *UserMgr) SetGenerateAccessKey(v func() string) {
-	mgr.generateAccessKey = v
+func (mgr *UserMgr) SetGenerateAccessKey(arg func() string) {
+	mgr.generateAccessKey = arg
 }
 
 // SetTableUser ...
