@@ -6,6 +6,7 @@ import (
 	"time"
 
 	sqlplus "github.com/cheetah-fun-gs/goplus/dao/sql"
+	randplus "github.com/cheetah-fun-gs/goplus/math/rand"
 	mlogger "github.com/cheetah-fun-gs/goplus/multier/multilogger"
 	uuidplus "github.com/cheetah-fun-gs/goplus/uuid"
 	"github.com/cheetah-fun-gs/gouser"
@@ -62,7 +63,7 @@ func defaultSendMobileCode(mobile, code string) error {
 }
 
 func defaultGenerateCode() (code string, expire int) {
-	return "", 600
+	return fmt.Sprintf("%03d", randplus.MustRandint(0, 999999)), 600
 }
 
 func getCodeKey(name, code string) string {
