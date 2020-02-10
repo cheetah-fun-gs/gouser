@@ -1,10 +1,14 @@
 package usermgr
 
 import (
+	"crypto/md5"
 	"database/sql"
+	"encoding/hex"
 	"fmt"
+	"strconv"
 	"time"
 
+	"github.com/cheetah-fun-gs/goplus/cacher"
 	sqlplus "github.com/cheetah-fun-gs/goplus/dao/sql"
 	randplus "github.com/cheetah-fun-gs/goplus/math/rand"
 	mlogger "github.com/cheetah-fun-gs/goplus/multier/multilogger"
@@ -22,16 +26,18 @@ type modelTable struct {
 
 // UserMgr 用户管理器
 type UserMgr struct {
-	tokenmgr           tokenmgr.TokenMgr                            // token 管理器
-	tableUser          *modelTable                                  // 用户表
-	tableUserAuth      *modelTable                                  // 第三方认证表
-	tableUserAccessKey *modelTable                                  // 访问密钥表
-	sendEmailCode      func(email, code string) error               // 发送邮箱验证码
-	sendMobileCode     func(mobile, code string) error              // 发送短信验证码
-	generateUID        func() (uid, nickname, avatar, extra string) // 生成一个全新的uid和扩展信息
-	generateCode       func() (code string, expire int)             // 生成一个校验码
-	generateAccessKey  func() string                                // 生成一个全新的AccessKey
-	authMgrs           []authmgr.AuthMgr                            // 支持的第三方认证方式
+	tokenmgr           tokenmgr.TokenMgr                               // token 管理器
+	tableUser          *modelTable                                     // 用户表
+	tableUserAuth      *modelTable                                     // 第三方认证表
+	tableUserAccessKey *modelTable                                     // 访问密钥表
+	sendEmailCode      func(email, code string) error                  // 发送邮箱验证码
+	sendMobileCode     func(mobile, code string) error                 // 发送短信验证码
+	generateUID        func() (uid, nickname, avatar, extra string)    // 生成一个全新的uid和扩展信息
+	generateCode       func() (code string, expire int)                // 生成一个校验码
+	generateAccessKey  func() string                                   // 生成一个全新的AccessKey
+	generateSign       func(accessKey string, data interface{}) string // AccessKey校验算法
+	authMgrs           []authmgr.AuthMgr                               // 支持的第三方认证方式
+	accessKeyCacher    *cacher.Cacher
 	pool               *redigo.Pool
 	db                 *sql.DB
 	config             *Config
@@ -41,8 +47,8 @@ type UserMgr struct {
 
 // Config ...
 type Config struct {
-	TokenExpire        int  // token 超时时间
-	IsSupportAccessKey bool // 是否支持访问密钥
+	TokenExpire       int  // token 超时时间
+	IsEnableAccessKey bool // 是否支持访问密钥
 }
 
 func defaultGenerateUID() (uid, nickname, avatar, extra string) {
@@ -52,6 +58,14 @@ func defaultGenerateUID() (uid, nickname, avatar, extra string) {
 
 func defaultGenerateAccessKey() string {
 	return uuidplus.NewV4().Base62()
+}
+
+func defaultGenerateSign(accessKey string, data interface{}) string {
+	ts := data.(int64)
+	h := md5.New()
+	h.Write([]byte(accessKey))
+	h.Write([]byte(strconv.Itoa(int(ts))))
+	return hex.EncodeToString(h.Sum(nil))
 }
 
 func defaultSendEmailCode(email, code string) error {
@@ -82,6 +96,10 @@ func New(name, secret string, pool *redigo.Pool, db *sql.DB, configs ...Config) 
 		config.TokenExpire = 3600 * 2
 	}
 
+	tableUserName := name + "_user"
+	tableUserAuthName := name + "_user_auth"
+	tableUserAccessKeyName := name + "_user_access_key"
+
 	mgr := &UserMgr{
 		name:     name,
 		secret:   secret,
@@ -90,22 +108,31 @@ func New(name, secret string, pool *redigo.Pool, db *sql.DB, configs ...Config) 
 		db:       db,
 		tokenmgr: tokenmgr.New(name, pool, config.TokenExpire),
 		tableUser: &modelTable{
-			Name:      name + "_user",
-			CreateSQL: fmt.Sprintf(TableUser, name+"_user"),
+			Name:      tableUserName,
+			CreateSQL: fmt.Sprintf(TableUser, tableUserName),
 		},
 		tableUserAuth: &modelTable{
-			Name:      name + "_user_auth",
-			CreateSQL: fmt.Sprintf(TableUserAuth, name+"_user_auth"),
+			Name:      tableUserAuthName,
+			CreateSQL: fmt.Sprintf(TableUserAuth, tableUserAuthName),
 		},
 		tableUserAccessKey: &modelTable{
-			Name:      name + "_user_access_key",
-			CreateSQL: fmt.Sprintf(TableUserAccessKey, name+"_user_access_key"),
+			Name:      tableUserAccessKeyName,
+			CreateSQL: fmt.Sprintf(TableUserAccessKey, tableUserAccessKeyName),
 		},
 		generateUID:       defaultGenerateUID,
 		generateAccessKey: defaultGenerateAccessKey,
+		generateSign:      defaultGenerateSign,
+		generateCode:      defaultGenerateCode,
 		sendEmailCode:     defaultSendEmailCode,
 		sendMobileCode:    defaultSendMobileCode,
-		generateCode:      defaultGenerateCode,
+	}
+	if config.IsEnableAccessKey {
+		mgr.accessKeyCacher = cacher.New(tableUserAccessKeyName, pool, &accessKeyMgr{
+			db: db,
+			tableUserAccessKey: &modelTable{
+				Name:      tableUserAccessKeyName,
+				CreateSQL: fmt.Sprintf(TableUserAccessKey, tableUserAccessKeyName),
+			}})
 	}
 	return mgr
 }
@@ -145,6 +172,11 @@ func (mgr *UserMgr) SetGenerateAccessKey(arg func() string) {
 	mgr.generateAccessKey = arg
 }
 
+// SetGenerateSign ...
+func (mgr *UserMgr) SetGenerateSign(arg func(accessKey string, data interface{}) string) {
+	mgr.generateSign = arg
+}
+
 // SetTableUser ...
 func (mgr *UserMgr) SetTableUser(tableName, tableCreateSQL string) error {
 	mgr.tableUser = &modelTable{
@@ -182,7 +214,7 @@ func (mgr *UserMgr) EnsureTables() error {
 			return err
 		}
 	}
-	if mgr.config.IsSupportAccessKey {
+	if mgr.config.IsEnableAccessKey {
 		if _, err := mgr.db.Exec(mgr.tableUserAccessKey.CreateSQL); err != nil {
 			return err
 		}
@@ -196,7 +228,7 @@ func (mgr *UserMgr) TablesCreateSQL() []string {
 	if len(mgr.authMgrs) > 0 {
 		result = append(result, mgr.tableUserAuth.CreateSQL)
 	}
-	if mgr.config.IsSupportAccessKey {
+	if mgr.config.IsEnableAccessKey {
 		result = append(result, mgr.tableUserAccessKey.CreateSQL)
 	}
 	return result
@@ -466,5 +498,12 @@ func (mgr *UserMgr) VerifyToken(uid, from, token string) (ok bool, err error) {
 
 // VerifySign 验证sign: sign由access key和请求数据(或请求数据部分字段)计算得到
 func (mgr *UserMgr) VerifySign(uid string, accessKeyID int, data interface{}, sign string) (ok bool, err error) {
-	return
+	var accessKey string
+	if ok, err := mgr.accessKeyCacher.Get(&accessKey, uid, accessKeyID); err != nil {
+		return false, err
+	} else if !ok {
+		return false, fmt.Errorf("accessKey not found")
+	}
+
+	return sign == mgr.generateSign(accessKey, data), nil
 }

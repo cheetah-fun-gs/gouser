@@ -72,7 +72,7 @@ func (user *User) Logout(from, token string) error {
 
 // Clean 清除账号
 func (user *User) Clean() error {
-	if len(user.mgr.authMgrs) == 0 && !user.mgr.config.IsSupportAccessKey {
+	if len(user.mgr.authMgrs) == 0 && !user.mgr.config.IsEnableAccessKey {
 		query := fmt.Sprintf("DELETE FROM %v WHERE id = ?;", user.mgr.tableUser.Name)
 		args := []interface{}{user.ID}
 		_, err := user.mgr.db.Exec(query, args...)
@@ -100,7 +100,7 @@ func (user *User) Clean() error {
 		}
 	}
 
-	if user.mgr.config.IsSupportAccessKey {
+	if user.mgr.config.IsEnableAccessKey {
 		queryAccessKey := fmt.Sprintf("DELETE FROM %v WHERE uid = ?;", user.mgr.tableUserAccessKey.Name)
 		argsAccessKey := []interface{}{user.UID}
 		_, err = user.mgr.db.Exec(queryAccessKey, argsAccessKey...)
