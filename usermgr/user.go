@@ -408,11 +408,13 @@ func (user *User) GenerateAccessKey(comment string, expireAts ...time.Time) (*Us
 		userAccessKey.ExpireAt = expireAt.Time.Unix()
 	}
 	user.AccessKeys = append(user.AccessKeys, userAccessKey)
+
+	// 不用操作缓存 等自动回源
 	return userAccessKey, nil
 }
 
-// UpdateAccessKey 更新一个 access key
-func (user *User) UpdateAccessKey(accessKeyID int, comment *string, expireAt *time.Time) error {
+// UpdateAccessKeyComment 更新一个 access key 的 comment
+func (user *User) UpdateAccessKeyComment(accessKeyID int, comment string) error {
 	var userAccessKey *UserAccessKey
 
 	for _, v := range user.AccessKeys {
@@ -425,25 +427,10 @@ func (user *User) UpdateAccessKey(accessKeyID int, comment *string, expireAt *ti
 		return fmt.Errorf("accessKey not found: %v", accessKeyID)
 	}
 
-	if comment == nil && expireAt == nil {
-		return fmt.Errorf("no valid params")
-	}
-
-	splits := []string{}
-	args := []interface{}{}
-	if comment != nil {
-		splits = append(splits, "comment = ?")
-		args = append(args, comment)
-	}
-	if expireAt != nil {
-		splits = append(splits, "expire_at = ?")
-		args = append(args, expireAt)
-	}
-
 	now := time.Now()
-	query := fmt.Sprintf("UPDATE %v Set %v, updated = ? WHERE id = ?;",
-		strings.Join(splits, ", "), user.mgr.tableUserAccessKey.Name)
-	args = append(args, now, accessKeyID)
+	query := fmt.Sprintf("UPDATE %v Set comment = ?, updated = ? WHERE id = ?;",
+		user.mgr.tableUserAccessKey.Name)
+	args := []interface{}{comment, now, accessKeyID}
 	updateCount, err := sqlplus.RowsAffected(user.mgr.db.Exec(query, args...))
 	if err != nil {
 		return err
@@ -452,11 +439,46 @@ func (user *User) UpdateAccessKey(accessKeyID int, comment *string, expireAt *ti
 		return ErrorNotFound
 	}
 
-	if comment != nil {
-		userAccessKey.Comment = *comment
+	userAccessKey.Comment = comment
+	return nil
+}
+
+// UpdateAccessKeyExpireAt 更新一个 access key的超时设置 expireAt为空表示永久有效
+func (user *User) UpdateAccessKeyExpireAt(accessKeyID int, expireAt *time.Time) error {
+	var userAccessKey *UserAccessKey
+
+	for _, v := range user.AccessKeys {
+		if v.ID == accessKeyID {
+			userAccessKey = v
+		}
 	}
+
+	if userAccessKey == nil {
+		return fmt.Errorf("accessKey not found: %v", accessKeyID)
+	}
+
+	now := time.Now()
+	query := fmt.Sprintf("UPDATE %v Set expire_at = ?, updated = ? WHERE id = ?;", user.mgr.tableUserAccessKey.Name)
+	args := []interface{}{expireAt, now, accessKeyID}
+	updateCount, err := sqlplus.RowsAffected(user.mgr.db.Exec(query, args...))
+	if err != nil {
+		return err
+	}
+	if updateCount == 0 {
+		return ErrorNotFound
+	}
+
 	if expireAt != nil {
 		userAccessKey.ExpireAt = (*expireAt).Unix()
+	} else {
+		userAccessKey.ExpireAt = 0
+	}
+
+	// 失效删除缓存 生效的等自然回源
+	if userAccessKey.ExpireAt != 0 && userAccessKey.ExpireAt < now.Unix() {
+		if err = user.mgr.accessKeyCacher.Del(user.UID, accessKeyID); err != nil {
+			return err
+		}
 	}
 	return nil
 }
@@ -485,11 +507,6 @@ func (user *User) DeleteAccessKey(accessKeyID int) error {
 		return ErrorNotFound
 	}
 
-	// 从缓存里删除
-	if err = user.mgr.accessKeyCacher.Del(user.UID, accessKeyID); err != nil {
-		return err
-	}
-
 	accessKeys := []*UserAccessKey{}
 	for _, v := range user.AccessKeys {
 		if v.ID != accessKeyID {
@@ -497,5 +514,10 @@ func (user *User) DeleteAccessKey(accessKeyID int) error {
 		}
 	}
 	user.AccessKeys = accessKeys
+
+	// 从缓存里删除
+	if err = user.mgr.accessKeyCacher.Del(user.UID, accessKeyID); err != nil {
+		return err
+	}
 	return nil
 }
