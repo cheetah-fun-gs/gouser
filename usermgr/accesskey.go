@@ -18,7 +18,7 @@ type accessKeyMgr struct {
 func (akm *accessKeyMgr) Get(dest interface{}, args ...interface{}) (bool, error) {
 	uid := args[0].(string)
 	aid := args[1].(int)
-	query := fmt.Sprintf("SELECT FROM %v WHERE uid = ? AND id = ?;", akm.tableUserAccessKey.Name)
+	query := fmt.Sprintf("SELECT * FROM %v WHERE uid = ? AND id = ?;", akm.tableUserAccessKey.Name)
 	queryArgs := []interface{}{uid, aid}
 	rows, err := akm.db.Query(query, queryArgs...)
 	if err != nil {
@@ -31,7 +31,7 @@ func (akm *accessKeyMgr) Get(dest interface{}, args ...interface{}) (bool, error
 	}
 
 	if result.ExpireAt.Valid && result.ExpireAt.Time.Before(time.Now()) {
-		return false, err
+		return false, fmt.Errorf("accessKey expired")
 	}
 	reflect.ValueOf(dest).Elem().Set(reflect.ValueOf(result.AccessKey))
 	return true, nil

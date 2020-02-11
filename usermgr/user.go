@@ -485,6 +485,11 @@ func (user *User) DeleteAccessKey(accessKeyID int) error {
 		return ErrorNotFound
 	}
 
+	// 从缓存里删除
+	if err = user.mgr.accessKeyCacher.Del(user.UID, accessKeyID); err != nil {
+		return err
+	}
+
 	accessKeys := []*UserAccessKey{}
 	for _, v := range user.AccessKeys {
 		if v.ID != accessKeyID {
