@@ -1,3 +1,4 @@
+// Package usermgr 注册方法 仅注册
 package usermgr
 
 import (
@@ -187,6 +188,9 @@ func (mgr *UserMgr) RegisterAuth(nickname, avatar, authName, authUID, authExtra 
 	query, args := sqlplus.GenInsert(mgr.tableUser.Name, data)
 	aid, err := sqlplus.LastInsertId(tx.Exec(query, args...))
 	if err != nil {
+		if errRollback := tx.Rollback(); errRollback != nil {
+			mlogger.WarnN(gouser.MLoggerName, "RegisterAuth Rollback err: %v", errRollback)
+		}
 		return nil, err
 	}
 
@@ -201,13 +205,13 @@ func (mgr *UserMgr) RegisterAuth(nickname, avatar, authName, authUID, authExtra 
 	authQuery, authArgs := sqlplus.GenInsert(mgr.tableUserAuth.Name, authData)
 	aidAuth, err := sqlplus.LastInsertId(tx.Exec(authQuery, authArgs...))
 	if err != nil {
+		if errRollback := tx.Rollback(); errRollback != nil {
+			mlogger.WarnN(gouser.MLoggerName, "RegisterAuth Rollback err: %v", errRollback)
+		}
 		return nil, err
 	}
 
 	if err = tx.Commit(); err != nil {
-		if errRollback := tx.Rollback(); errRollback != nil {
-			mlogger.WarnN(gouser.MLoggerName, "RegisterAuth Rollback err: %v", errRollback)
-		}
 		return nil, err
 	}
 

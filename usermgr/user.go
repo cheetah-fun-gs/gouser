@@ -72,6 +72,7 @@ func (user *User) Logout(from, token string) error {
 
 // Clean 清除账号
 func (user *User) Clean() error {
+	// 不支持accesskey 和 第三方认证. 直接执行
 	if len(user.mgr.authMgrs) == 0 && !user.mgr.config.IsEnableAccessKey {
 		query := fmt.Sprintf("DELETE FROM %v WHERE id = ?;", user.mgr.tableUser.Name)
 		args := []interface{}{user.ID}
@@ -79,6 +80,7 @@ func (user *User) Clean() error {
 		return err
 	}
 
+	// 使用事务
 	tx, err := user.mgr.db.Begin()
 	if err != nil {
 		return err
@@ -86,16 +88,22 @@ func (user *User) Clean() error {
 
 	query := fmt.Sprintf("DELETE FROM %v WHERE id = ?;", user.mgr.tableUser.Name)
 	args := []interface{}{user.ID}
-	_, err = user.mgr.db.Exec(query, args...)
+	_, err = tx.Exec(query, args...)
 	if err != nil {
+		if errRollback := tx.Rollback(); errRollback != nil {
+			mlogger.WarnN(gouser.MLoggerName, "UserClean Rollback err: %v", errRollback)
+		}
 		return err
 	}
 
 	if len(user.mgr.authMgrs) > 0 {
 		queryAuth := fmt.Sprintf("DELETE FROM %v WHERE uid = ?;", user.mgr.tableUserAuth.Name)
 		argsAuth := []interface{}{user.UID}
-		_, err = user.mgr.db.Exec(queryAuth, argsAuth...)
+		_, err = tx.Exec(queryAuth, argsAuth...)
 		if err != nil {
+			if errRollback := tx.Rollback(); errRollback != nil {
+				mlogger.WarnN(gouser.MLoggerName, "UserClean Rollback err: %v", errRollback)
+			}
 			return err
 		}
 	}
@@ -103,19 +111,16 @@ func (user *User) Clean() error {
 	if user.mgr.config.IsEnableAccessKey {
 		queryAccessKey := fmt.Sprintf("DELETE FROM %v WHERE uid = ?;", user.mgr.tableUserAccessKey.Name)
 		argsAccessKey := []interface{}{user.UID}
-		_, err = user.mgr.db.Exec(queryAccessKey, argsAccessKey...)
+		_, err = tx.Exec(queryAccessKey, argsAccessKey...)
 		if err != nil {
+			if errRollback := tx.Rollback(); errRollback != nil {
+				mlogger.WarnN(gouser.MLoggerName, "UserClean Rollback err: %v", errRollback)
+			}
 			return err
 		}
 	}
 
-	if err = tx.Commit(); err != nil {
-		if errRollback := tx.Rollback(); errRollback != nil {
-			mlogger.WarnN(gouser.MLoggerName, "UserClean Rollback err: %v", errRollback)
-		}
-		return err
-	}
-	return nil
+	return tx.Commit()
 }
 
 // BindAuth 绑定第三方认证
