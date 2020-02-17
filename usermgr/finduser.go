@@ -75,8 +75,22 @@ func (mgr *UserMgr) FindAnyUser(any string) (*User, error) {
 	args := []interface{}{any, any, any}
 
 	var tx *sql.Tx
-	var rows *sql.Rows
 	var err error
+	defer func() {
+		if tx != nil {
+			if err != nil {
+				if errRollback := tx.Rollback(); errRollback != nil {
+					mlogger.WarnN(gouser.MLoggerName, "FindUser Rollback err: %v", errRollback)
+				}
+			} else {
+				if errCommit := tx.Commit(); errCommit != nil {
+					mlogger.WarnN(gouser.MLoggerName, "FindUser Commit err: %v", errCommit)
+				}
+			}
+		}
+	}()
+
+	var rows *sql.Rows
 	if len(mgr.authMgrs) == 0 && !mgr.config.IsEnableAccessKey {
 		// 不支持accesskey 和 第三方认证. 直接执行
 		rows, err = mgr.db.Query(query, args...)
@@ -92,21 +106,12 @@ func (mgr *UserMgr) FindAnyUser(any string) (*User, error) {
 
 		rows, err = tx.Query(query, args...)
 		if err != nil {
-			if errRollback := tx.Rollback(); errRollback != nil {
-				mlogger.WarnN(gouser.MLoggerName, "FindUser Rollback err: %v", errRollback)
-			}
 			return nil, err
 		}
 	}
 
 	result := &ModelUser{}
 	if err = sqlplus.Get(rows, result); err != nil {
-		if tx != nil {
-			// 使用了事务需要回滚
-			if errRollback := tx.Rollback(); errRollback != nil {
-				mlogger.WarnN(gouser.MLoggerName, "FindUser Rollback err: %v", errRollback)
-			}
-		}
 		return nil, err
 	}
 
@@ -133,24 +138,14 @@ func (mgr *UserMgr) FindAnyUser(any string) (*User, error) {
 	if len(mgr.authMgrs) > 0 {
 		auths, err = mgr.findAuths(tx, user.UID)
 		if err != nil {
-			if errRollback := tx.Rollback(); errRollback != nil {
-				mlogger.WarnN(gouser.MLoggerName, "FindUser Rollback err: %v", errRollback)
-			}
 			return nil, err
 		}
 	}
 	if mgr.config.IsEnableAccessKey {
 		accessKeys, err = mgr.findAccessKeys(tx, user.UID)
 		if err != nil {
-			if errRollback := tx.Rollback(); errRollback != nil {
-				mlogger.WarnN(gouser.MLoggerName, "FindUser Rollback err: %v", errRollback)
-			}
 			return nil, err
 		}
-	}
-
-	if errCommit := tx.Commit(); errCommit != nil {
-		mlogger.WarnN(gouser.MLoggerName, "FindUser Commit err: %v", errCommit)
 	}
 
 	user.Auths = auths
