@@ -176,6 +176,14 @@ func (mgr *UserMgr) RegisterAuth(nickname, avatar, authName, authUID, authExtra 
 		return nil, err
 	}
 
+	defer func() {
+		if err != nil {
+			if errRollback := tx.Rollback(); errRollback != nil {
+				mlogger.WarnN(gouser.MLoggerName, "RegisterAuth Rollback err: %v", errRollback)
+			}
+		}
+	}()
+
 	data := &ModelUser{
 		UID:       uid,
 		Nickname:  nickname,
@@ -186,7 +194,8 @@ func (mgr *UserMgr) RegisterAuth(nickname, avatar, authName, authUID, authExtra 
 	}
 
 	query, args := sqlplus.GenInsert(mgr.tableUser.Name, data)
-	aid, err := sqlplus.LastInsertId(tx.Exec(query, args...))
+	var aid int
+	aid, err = sqlplus.LastInsertId(tx.Exec(query, args...))
 	if err != nil {
 		if errRollback := tx.Rollback(); errRollback != nil {
 			mlogger.WarnN(gouser.MLoggerName, "RegisterAuth Rollback err: %v", errRollback)
@@ -203,7 +212,8 @@ func (mgr *UserMgr) RegisterAuth(nickname, avatar, authName, authUID, authExtra 
 		Updated:   now,
 	}
 	authQuery, authArgs := sqlplus.GenInsert(mgr.tableUserAuth.Name, authData)
-	aidAuth, err := sqlplus.LastInsertId(tx.Exec(authQuery, authArgs...))
+	var aidAuth int
+	aidAuth, err = sqlplus.LastInsertId(tx.Exec(authQuery, authArgs...))
 	if err != nil {
 		if errRollback := tx.Rollback(); errRollback != nil {
 			mlogger.WarnN(gouser.MLoggerName, "RegisterAuth Rollback err: %v", errRollback)
@@ -211,8 +221,8 @@ func (mgr *UserMgr) RegisterAuth(nickname, avatar, authName, authUID, authExtra 
 		return nil, err
 	}
 
-	if err = tx.Commit(); err != nil {
-		return nil, err
+	if errCommit := tx.Commit(); errCommit != nil {
+		return nil, errCommit
 	}
 
 	return &User{

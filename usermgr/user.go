@@ -88,7 +88,7 @@ func (user *User) Clean() error {
 	}
 
 	defer func() {
-		if tx != nil && err != nil {
+		if err != nil {
 			if errRollback := tx.Rollback(); errRollback != nil {
 				mlogger.WarnN(gouser.MLoggerName, "UserClean Rollback err: %v", errRollback)
 			}
