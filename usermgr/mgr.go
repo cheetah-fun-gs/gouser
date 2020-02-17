@@ -15,6 +15,10 @@ import (
 	redigo "github.com/gomodule/redigo/redis"
 )
 
+const (
+	fromDefault = "default"
+)
+
 type modelTable struct {
 	Name      string
 	CreateSQL string
@@ -26,10 +30,8 @@ type UserMgr struct {
 	tableUser          *modelTable                                     // 用户表
 	tableUserAuth      *modelTable                                     // 第三方认证表
 	tableUserAccessKey *modelTable                                     // 访问密钥表
-	sendEmailCode      func(email, code string) error                  // 发送邮箱验证码
-	sendMobileCode     func(mobile, code string) error                 // 发送短信验证码
 	generateUID        func() (uid, nickname, avatar, extra string)    // 生成一个全新的uid和扩展信息
-	generateCode       func() (code string, expire int)                // 生成一个校验码
+	generateCode       func() string                                   // 生成一个校验码
 	generateAccessKey  func() string                                   // 生成一个全新的AccessKey
 	generateSign       func(accessKey string, data interface{}) string // AccessKey校验算法
 	authMgrs           []authmgr.AuthMgr                               // 支持的第三方认证方式
@@ -44,6 +46,8 @@ type UserMgr struct {
 // Config ...
 type Config struct {
 	TokenExpire       int  // token 超时时间
+	CodeExpire        int  // 验证码过期时间
+	CodeRetry         int  // 验证码重试间隔
 	IsEnableAccessKey bool // 是否支持访问密钥
 }
 
@@ -64,20 +68,8 @@ func defaultGenerateSign(accessKey string, data interface{}) string {
 	return hex.EncodeToString(h.Sum(nil))
 }
 
-func defaultSendEmailCode(email, code string) error {
-	return nil
-}
-
-func defaultSendMobileCode(mobile, code string) error {
-	return nil
-}
-
-func defaultGenerateCode() (code string, expire int) {
-	return fmt.Sprintf("%03d", randplus.MustRandint(0, 999999)), 600
-}
-
-func getCodeKey(name, code string) string {
-	return fmt.Sprintf("%s:%s:code", name, code)
+func defaultGenerateCode() string {
+	return fmt.Sprintf("%03d", randplus.MustRandint(0, 999999))
 }
 
 // New 一个新的用户管理器
@@ -90,6 +82,12 @@ func New(name, secret string, pool *redigo.Pool, db *sql.DB, configs ...Config) 
 	}
 	if config.TokenExpire == 0 {
 		config.TokenExpire = 3600 * 2
+	}
+	if config.CodeExpire == 0 {
+		config.CodeExpire = 600
+	}
+	if config.CodeRetry == 0 {
+		config.CodeRetry = 60
 	}
 
 	tableUserName := name + "_user"
@@ -119,8 +117,6 @@ func New(name, secret string, pool *redigo.Pool, db *sql.DB, configs ...Config) 
 		generateAccessKey: defaultGenerateAccessKey,
 		generateSign:      defaultGenerateSign,
 		generateCode:      defaultGenerateCode,
-		sendEmailCode:     defaultSendEmailCode,
-		sendMobileCode:    defaultSendMobileCode,
 	}
 	if config.IsEnableAccessKey {
 		mgr.accessKeyCacher = cacher.New(tableUserAccessKeyName, pool, &accessKeyMgr{
@@ -143,23 +139,13 @@ func (mgr *UserMgr) SetTokenMgr(arg tokenmgr.TokenMgr) {
 	mgr.tokenmgr = arg
 }
 
-// SetSendEmailCode ...
-func (mgr *UserMgr) SetSendEmailCode(arg func(email, code string) error) {
-	mgr.sendEmailCode = arg
-}
-
-// SetSendMobileCode ...
-func (mgr *UserMgr) SetSendMobileCode(arg func(mobile, code string) error) {
-	mgr.sendMobileCode = arg
-}
-
 // SetGenerateUID ...
 func (mgr *UserMgr) SetGenerateUID(arg func() (uid, nickname, avatar, extra string)) {
 	mgr.generateUID = arg
 }
 
 // SetGenerateCode ...
-func (mgr *UserMgr) SetGenerateCode(arg func() (code string, expire int)) {
+func (mgr *UserMgr) SetGenerateCode(arg func() string) {
 	mgr.generateCode = arg
 }
 
@@ -230,38 +216,6 @@ func (mgr *UserMgr) TablesCreateSQL() []string {
 	return result
 }
 
-func (mgr *UserMgr) applyCode(content string) (code string, expire int, err error) {
-	code, expire = mgr.generateCode()
-	conn := mgr.pool.Get()
-	defer conn.Close()
-
-	codeKey := getCodeKey(mgr.name, code)
-	var result string
-	result, err = redigo.String(conn.Do("SET", codeKey, content, "EX", expire, "NX"))
-	if err != nil {
-		return
-	}
-	if result != "OK" {
-		return "", 0, fmt.Errorf("code duplicate")
-	}
-	return
-}
-
-func (mgr *UserMgr) checkCode(code string) (ok bool, content string, err error) {
-	conn := mgr.pool.Get()
-	defer conn.Close()
-
-	codeKey := getCodeKey(mgr.name, code)
-	content, err = redigo.String(conn.Do("GET", codeKey))
-	if err != nil && err != redigo.ErrNil {
-		return
-	}
-	if err == redigo.ErrNil {
-		return false, "", nil
-	}
-	return
-}
-
 func (mgr *UserMgr) getPassword(rawPassword string) string {
 	return uuidplus.NewV5(mgr.secret, rawPassword).Base62()
 }
@@ -284,4 +238,14 @@ func (mgr *UserMgr) VerifySign(uid string, accessKeyID int, data interface{}, si
 	}
 
 	return sign == mgr.generateSign(accessKey, data), nil
+}
+
+// VerifyAuth 验证第三方凭证
+func (mgr *UserMgr) VerifyAuth(authName string, v interface{}) (authUID, authExtra string, err error) {
+	for _, auth := range mgr.authMgrs {
+		if auth.GetName() == authName {
+			return auth.Verify(v)
+		}
+	}
+	return "", "", fmt.Errorf("authName is not support")
 }

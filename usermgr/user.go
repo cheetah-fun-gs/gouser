@@ -44,7 +44,12 @@ type UserAccessKey struct {
 }
 
 // Login 登录
-func (user *User) Login(from string) (token string, deadline int64, err error) {
+func (user *User) Login() (token string, deadline int64, err error) {
+	return user.LoginWithFrom(fromDefault)
+}
+
+// LoginWithFrom 登录
+func (user *User) LoginWithFrom(from string) (token string, deadline int64, err error) {
 	token, deadline, err = user.mgr.tokenmgr.Generate(user.UID, from)
 	if err != nil {
 		return
@@ -64,8 +69,13 @@ func (user *User) Login(from string) (token string, deadline int64, err error) {
 }
 
 // Logout 登出
-func (user *User) Logout(from, token string) error {
-	return user.mgr.tokenmgr.Clean(user.UID, from, token)
+func (user *User) Logout() error {
+	return user.LogoutWithFrom(fromDefault)
+}
+
+// LogoutWithFrom 登出
+func (user *User) LogoutWithFrom(from string) error {
+	return user.mgr.tokenmgr.Clean(user.UID, from)
 }
 
 // Clean 清除账号
@@ -120,7 +130,12 @@ func (user *User) Clean() error {
 }
 
 // BindAuth 绑定第三方认证
-func (user *User) BindAuth(authName, authUID, authExtra string) error {
+func (user *User) BindAuth(authName string, v interface{}) error {
+	authUID, authExtra, err := user.mgr.VerifyAuth(authName, v)
+	if err != nil {
+		return err
+	}
+
 	now := time.Now()
 	authData := &ModelUserAuth{
 		UID:       user.UID,
@@ -131,7 +146,7 @@ func (user *User) BindAuth(authName, authUID, authExtra string) error {
 		Updated:   now,
 	}
 	authQuery, authArgs := sqlplus.GenInsert(user.mgr.tableUserAuth.Name, authData)
-	_, err := sqlplus.LastInsertId(user.mgr.db.Exec(authQuery, authArgs...))
+	_, err = sqlplus.LastInsertId(user.mgr.db.Exec(authQuery, authArgs...))
 	return err
 }
 
@@ -257,12 +272,12 @@ func (user *User) UpdateUID(uid string) error {
 
 // UpdateEmailApplyCode 更新邮箱申请code
 func (user *User) UpdateEmailApplyCode() (code string, expire int, err error) {
-	return user.mgr.applyCode("UpdateEmail")
+	return user.mgr.ApplyCode(user.UID)
 }
 
 // UpdateEmail 更新uid
 func (user *User) UpdateEmail(email, code string) error {
-	ok, _, err := user.mgr.checkCode(code)
+	ok, err := user.mgr.VerifyCode(code, user.UID)
 	if err != nil {
 		return err
 	}
@@ -286,13 +301,13 @@ func (user *User) UpdateEmail(email, code string) error {
 }
 
 // UpdateMobileApplyCode 更新手机号申请code
-func (user *User) UpdateMobileApplyCode() (code string, expire int, err error) {
-	return user.mgr.applyCode("UpdateMobile")
+func (user *User) UpdateMobileApplyCode(mobile string) (code string, expire, retry int, err error) {
+	return user.mgr.ApplyCodeAntiReplay(mobile, user.UID)
 }
 
 // UpdateMobile 更新手机号
 func (user *User) UpdateMobile(mobile, code string) error {
-	ok, _, err := user.mgr.checkCode(code)
+	ok, err := user.mgr.VerifyCode(code, user.UID)
 	if err != nil {
 		return err
 	}
@@ -317,12 +332,12 @@ func (user *User) UpdateMobile(mobile, code string) error {
 
 // UpdatePasswordApplyCode 更改密码申请code
 func (user *User) UpdatePasswordApplyCode() (code string, expire int, err error) {
-	return user.mgr.applyCode("UpdatePassword")
+	return user.mgr.ApplyCode(user.UID)
 }
 
 // UpdatePasswordWithCode 通过验证码更改密码
 func (user *User) UpdatePasswordWithCode(rawPassword, code string) error {
-	ok, _, err := user.mgr.checkCode(code)
+	ok, err := user.mgr.VerifyCode(code, user.UID)
 	if err != nil {
 		return err
 	}

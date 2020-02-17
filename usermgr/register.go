@@ -45,13 +45,13 @@ func (mgr *UserMgr) RegisterLAPD(uid, rawPassword string) (*User, error) {
 }
 
 // RegisterEmailApplyCode 邮件用户注册申请code
-func (mgr *UserMgr) RegisterEmailApplyCode() (code string, expire int, err error) {
-	return mgr.applyCode("RegisterEmail")
+func (mgr *UserMgr) RegisterEmailApplyCode(email string) (code string, expire int, err error) {
+	return mgr.ApplyCode(email)
 }
 
 // RegisterEmail 邮件用户注册
 func (mgr *UserMgr) RegisterEmail(email, code string) (*User, error) {
-	ok, _, err := mgr.checkCode(code)
+	ok, err := mgr.VerifyCode(code, email)
 	if err != nil {
 		return nil, err
 	}
@@ -91,13 +91,13 @@ func (mgr *UserMgr) RegisterEmail(email, code string) (*User, error) {
 }
 
 // RegisterMobileApplyCode 手机用户注册申请code
-func (mgr *UserMgr) RegisterMobileApplyCode() (code string, expire int, err error) {
-	return mgr.applyCode("RegisterMobile")
+func (mgr *UserMgr) RegisterMobileApplyCode(mobile string) (code string, expire, retry int, err error) {
+	return mgr.ApplyCodeAntiReplay(mobile, mobile)
 }
 
 // RegisterMobile 手机用户注册
 func (mgr *UserMgr) RegisterMobile(mobile, code string) (*User, error) {
-	ok, _, err := mgr.checkCode(code)
+	ok, err := mgr.VerifyCode(code, mobile)
 	if err != nil {
 		return nil, err
 	}
@@ -105,6 +105,10 @@ func (mgr *UserMgr) RegisterMobile(mobile, code string) (*User, error) {
 		return nil, fmt.Errorf("code is invalid")
 	}
 
+	return mgr.registerMobile(mobile)
+}
+
+func (mgr *UserMgr) registerMobile(mobile string) (*User, error) {
 	now := time.Now()
 	uid, nickname, avatar, extra := mgr.generateUID()
 	data := &ModelUser{
@@ -167,9 +171,18 @@ func (mgr *UserMgr) RegisterTourist() (*User, error) {
 }
 
 // RegisterAuth 第三方注册
-func (mgr *UserMgr) RegisterAuth(nickname, avatar, authName, authUID, authExtra string) (*User, error) {
+func (mgr *UserMgr) RegisterAuth(authName string, v interface{}) (*User, error) {
+	authUID, authExtra, err := mgr.VerifyAuth(authName, v)
+	if err != nil {
+		return nil, err
+	}
+
+	return mgr.registerAuth(authName, authUID, authExtra)
+}
+
+func (mgr *UserMgr) registerAuth(authName, authUID, authExtra string) (*User, error) {
 	now := time.Now()
-	uid, _, _, _ := mgr.generateUID()
+	uid, nickname, avatar, _ := mgr.generateUID()
 
 	tx, err := mgr.db.Begin()
 	if err != nil {

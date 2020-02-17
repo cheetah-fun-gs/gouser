@@ -16,7 +16,7 @@ import (
 type TokenMgr interface {
 	Generate(uid, from string) (token string, deadline int64, err error) // 生成一个新的token
 	Verify(uid, from, token string) (ok bool, err error)                 // 验证token是否有效
-	Clean(uid, from, token string) error                                 // 清除token
+	Clean(uid, from string) error                                        // 清除token
 }
 
 // DefaultMgr 默认管理器
@@ -160,11 +160,11 @@ func (s *DefaultMgr) Verify(uid, from, token string) (ok bool, err error) {
 }
 
 // Clean ...
-func (s *DefaultMgr) Clean(uid, from, token string) (err error) {
+func (s *DefaultMgr) Clean(uid, from string) (err error) {
 	conn := s.pool.Get()
 	defer conn.Close()
 
 	tokenKey := getTokenKey(s.name, uid, from)
-	_, err = conn.Do("HDEL", tokenKey, token)
+	_, err = conn.Do("DEL", tokenKey)
 	return
 }
