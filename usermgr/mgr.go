@@ -273,6 +273,9 @@ func (mgr *UserMgr) VerifyToken(uid, from, token string) (ok bool, err error) {
 
 // VerifySign 验证sign: sign由access key和请求数据(或请求数据部分字段)计算得到
 func (mgr *UserMgr) VerifySign(uid string, accessKeyID int, data interface{}, sign string) (ok bool, err error) {
+	if !mgr.config.IsEnableAccessKey {
+		return false, fmt.Errorf("IsEnableAccessKey is not enable")
+	}
 	var accessKey string
 	if ok, err := mgr.accessKeyCacher.Get(&accessKey, uid, accessKeyID); err != nil {
 		return false, err

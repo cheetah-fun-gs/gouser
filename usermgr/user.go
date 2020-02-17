@@ -13,18 +13,16 @@ import (
 
 // User 用户
 type User struct {
-	mgr        *UserMgr
-	ID         int              `json:"id,omitempty"`
-	UID        string           `json:"uid,omitempty"`
-	Email      string           `json:"email,omitempty"`
-	Mobile     string           `json:"mobile,omitempty"`
-	Nickname   string           `json:"nickname,omitempty"`
-	Avatar     string           `json:"avatar,omitempty"`
-	Extra      string           `json:"extra,omitempty"`
-	LastLogin  int64            `json:"last_login,omitempty"`
-	Created    int64            `json:"created,omitempty"`
-	Auths      []*UserAuth      `json:"auths,omitempty"`
-	AccessKeys []*UserAccessKey `json:"access_keys,omitempty"`
+	mgr       *UserMgr
+	ID        int    `json:"id,omitempty"`
+	UID       string `json:"uid,omitempty"`
+	Email     string `json:"email,omitempty"`
+	Mobile    string `json:"mobile,omitempty"`
+	Nickname  string `json:"nickname,omitempty"`
+	Avatar    string `json:"avatar,omitempty"`
+	Extra     string `json:"extra,omitempty"`
+	LastLogin int64  `json:"last_login,omitempty"`
+	Created   int64  `json:"created,omitempty"`
 }
 
 // UserAuth 第三方认证
@@ -133,34 +131,12 @@ func (user *User) BindAuth(authName, authUID, authExtra string) error {
 		Updated:   now,
 	}
 	authQuery, authArgs := sqlplus.GenInsert(user.mgr.tableUserAuth.Name, authData)
-	aidAuth, err := sqlplus.LastInsertId(user.mgr.db.Exec(authQuery, authArgs...))
-	if err != nil {
-		return err
-	}
-
-	user.Auths = append(user.Auths, &UserAuth{
-		ID:        int(aidAuth),
-		AuthName:  authName,
-		AuthUID:   authUID,
-		AuthExtra: authExtra,
-		Created:   now.Unix(),
-	})
-	return nil
+	_, err := sqlplus.LastInsertId(user.mgr.db.Exec(authQuery, authArgs...))
+	return err
 }
 
 // UnbindAuth 解绑第三方认证
 func (user *User) UnbindAuth(authName string) error {
-	var isMatch bool
-
-	for _, v := range user.Auths {
-		if v.AuthName == authName {
-			isMatch = true
-		}
-	}
-	if !isMatch {
-		return fmt.Errorf("auth not found: %v", authName)
-	}
-
 	query := fmt.Sprintf("DELETE FROM %v WHERE uid = ? AND auth_name = ?;", user.mgr.tableUserAuth.Name)
 	args := []interface{}{user.UID, authName}
 	updateCount, err := sqlplus.RowsAffected(user.mgr.db.Exec(query, args...))
@@ -170,15 +146,35 @@ func (user *User) UnbindAuth(authName string) error {
 	if updateCount == 0 {
 		return ErrorNotFound
 	}
+	return nil
+}
+
+// GetAuths 获得第三方信息
+func (user *User) GetAuths() ([]*UserAuth, error) {
+	query := fmt.Sprintf("SELECT * FROM %v WHERE uid = ?;", user.mgr.tableUserAuth.Name)
+	args := []interface{}{user.UID}
+
+	rows, err := user.mgr.db.Query(query, args...)
+	if err != nil {
+		return nil, err
+	}
+
+	result := []*ModelUserAuth{}
+	if err = sqlplus.Select(rows, &result); err != nil {
+		return nil, err
+	}
 
 	auths := []*UserAuth{}
-	for _, v := range user.Auths {
-		if v.AuthName != authName {
-			auths = append(auths, v)
-		}
+	for _, val := range result {
+		auths = append(auths, &UserAuth{
+			ID:        val.ID,
+			AuthName:  val.AuthName,
+			AuthUID:   val.AuthUID,
+			AuthExtra: val.AuthExtra,
+			Created:   val.Created.Unix(),
+		})
 	}
-	user.Auths = auths
-	return nil
+	return auths, nil
 }
 
 // UpdateInfo 更新用户信息
@@ -228,21 +224,10 @@ func (user *User) UpdateInfo(nickname, avatar, extra *string) error {
 
 // UpdateAuthInfo 更新第三方信息
 func (user *User) UpdateAuthInfo(authName, authExtra string) error {
-	var userAuth *UserAuth
-
-	for _, v := range user.Auths {
-		if v.AuthName == authName {
-			userAuth = v
-		}
-	}
-	if userAuth == nil {
-		return fmt.Errorf("auth not found: %v", authName)
-	}
-
 	now := time.Now()
-	query := fmt.Sprintf("UPDATE %v Set auth_extra = ?, updated = ? WHERE id = ?;",
+	query := fmt.Sprintf("UPDATE %v Set auth_extra = ?, updated = ? WHERE uid = ? AND auth_name = ?;",
 		user.mgr.tableUserAuth.Name)
-	args := []interface{}{authExtra, now, userAuth.ID}
+	args := []interface{}{authExtra, now, user.UID, authName}
 	updateCount, err := sqlplus.RowsAffected(user.mgr.db.Exec(query, args...))
 	if err != nil {
 		return err
@@ -250,8 +235,6 @@ func (user *User) UpdateAuthInfo(authName, authExtra string) error {
 	if updateCount == 0 {
 		return ErrorNotFound
 	}
-
-	userAuth.AuthExtra = authExtra
 	return nil
 }
 
@@ -378,6 +361,42 @@ func (user *User) UpdatePasswordWithPassword(oldRawPassword, newRawPassword stri
 	return nil
 }
 
+// GetAccessKeys 获取accesskeys isAll 是否包含过期的访问秘钥
+func (user *User) GetAccessKeys(isAll bool) ([]*UserAccessKey, error) {
+	query := fmt.Sprintf("SELECT * FROM %v WHERE uid = ?", user.mgr.tableUserAccessKey.Name)
+	args := []interface{}{user.UID}
+	if !isAll {
+		query += " AND (expire_at is NULL OR expire_at > ?);"
+		args = append(args, time.Now())
+	}
+
+	rows, err := user.mgr.db.Query(query, args...)
+	if err != nil {
+		return nil, err
+	}
+
+	result := []*ModelUserAccessKey{}
+	if err = sqlplus.Select(rows, &result); err != nil {
+		return nil, err
+	}
+
+	accessKeys := []*UserAccessKey{}
+	for _, val := range result {
+		var expireAt int64
+		if val.ExpireAt.Valid {
+			expireAt = val.ExpireAt.Time.Unix()
+		}
+		accessKeys = append(accessKeys, &UserAccessKey{
+			ID:        val.ID,
+			AccessKey: val.AccessKey,
+			ExpireAt:  expireAt,
+			Comment:   val.Comment,
+			Created:   val.Created.Unix(),
+		})
+	}
+	return accessKeys, nil
+}
+
 // GenerateAccessKey 生成一个 access key
 func (user *User) GenerateAccessKey(comment string, expireAts ...time.Time) (*UserAccessKey, error) {
 	now := time.Now()
@@ -414,7 +433,6 @@ func (user *User) GenerateAccessKey(comment string, expireAts ...time.Time) (*Us
 	if expireAt.Valid {
 		userAccessKey.ExpireAt = expireAt.Time.Unix()
 	}
-	user.AccessKeys = append(user.AccessKeys, userAccessKey)
 
 	// 不用操作缓存 等自动回源
 	return userAccessKey, nil
@@ -422,18 +440,6 @@ func (user *User) GenerateAccessKey(comment string, expireAts ...time.Time) (*Us
 
 // UpdateAccessKeyComment 更新一个 access key 的 comment
 func (user *User) UpdateAccessKeyComment(accessKeyID int, comment string) error {
-	var userAccessKey *UserAccessKey
-
-	for _, v := range user.AccessKeys {
-		if v.ID == accessKeyID {
-			userAccessKey = v
-		}
-	}
-
-	if userAccessKey == nil {
-		return fmt.Errorf("accessKey not found: %v", accessKeyID)
-	}
-
 	now := time.Now()
 	query := fmt.Sprintf("UPDATE %v Set comment = ?, updated = ? WHERE id = ?;",
 		user.mgr.tableUserAccessKey.Name)
@@ -445,25 +451,11 @@ func (user *User) UpdateAccessKeyComment(accessKeyID int, comment string) error 
 	if updateCount == 0 {
 		return ErrorNotFound
 	}
-
-	userAccessKey.Comment = comment
 	return nil
 }
 
 // UpdateAccessKeyExpireAt 更新一个 access key的超时设置 expireAt为空表示永久有效
 func (user *User) UpdateAccessKeyExpireAt(accessKeyID int, expireAt *time.Time) error {
-	var userAccessKey *UserAccessKey
-
-	for _, v := range user.AccessKeys {
-		if v.ID == accessKeyID {
-			userAccessKey = v
-		}
-	}
-
-	if userAccessKey == nil {
-		return fmt.Errorf("accessKey not found: %v", accessKeyID)
-	}
-
 	now := time.Now()
 	query := fmt.Sprintf("UPDATE %v Set expire_at = ?, updated = ? WHERE id = ?;", user.mgr.tableUserAccessKey.Name)
 	args := []interface{}{expireAt, now, accessKeyID}
@@ -475,14 +467,8 @@ func (user *User) UpdateAccessKeyExpireAt(accessKeyID int, expireAt *time.Time) 
 		return ErrorNotFound
 	}
 
-	if expireAt != nil {
-		userAccessKey.ExpireAt = (*expireAt).Unix()
-	} else {
-		userAccessKey.ExpireAt = 0
-	}
-
 	// 失效删除缓存 生效的等自然回源
-	if userAccessKey.ExpireAt != 0 && userAccessKey.ExpireAt < now.Unix() {
+	if expireAt != nil && expireAt.Before(now) {
 		if err = user.mgr.accessKeyCacher.Del(user.UID, accessKeyID); err != nil {
 			return err
 		}
@@ -492,18 +478,6 @@ func (user *User) UpdateAccessKeyExpireAt(accessKeyID int, expireAt *time.Time) 
 
 // DeleteAccessKey 更新一个 access key
 func (user *User) DeleteAccessKey(accessKeyID int) error {
-	var isMatch bool
-
-	for _, v := range user.AccessKeys {
-		if v.ID == accessKeyID {
-			isMatch = true
-		}
-	}
-
-	if !isMatch {
-		return fmt.Errorf("accessKey not found: %v", accessKeyID)
-	}
-
 	query := fmt.Sprintf("DELETE FROM %v WHERE id = ?;", user.mgr.tableUserAccessKey.Name)
 	args := []interface{}{accessKeyID}
 	updateCount, err := sqlplus.RowsAffected(user.mgr.db.Exec(query, args...))
@@ -513,14 +487,6 @@ func (user *User) DeleteAccessKey(accessKeyID int) error {
 	if updateCount == 0 {
 		return ErrorNotFound
 	}
-
-	accessKeys := []*UserAccessKey{}
-	for _, v := range user.AccessKeys {
-		if v.ID != accessKeyID {
-			accessKeys = append(accessKeys, v)
-		}
-	}
-	user.AccessKeys = accessKeys
 
 	// 从缓存里删除
 	if err = user.mgr.accessKeyCacher.Del(user.UID, accessKeyID); err != nil {

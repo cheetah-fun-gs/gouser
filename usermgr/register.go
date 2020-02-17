@@ -212,8 +212,7 @@ func (mgr *UserMgr) RegisterAuth(nickname, avatar, authName, authUID, authExtra 
 		Updated:   now,
 	}
 	authQuery, authArgs := sqlplus.GenInsert(mgr.tableUserAuth.Name, authData)
-	var aidAuth int
-	aidAuth, err = sqlplus.LastInsertId(tx.Exec(authQuery, authArgs...))
+	_, err = sqlplus.LastInsertId(tx.Exec(authQuery, authArgs...))
 	if err != nil {
 		if errRollback := tx.Rollback(); errRollback != nil {
 			mlogger.WarnN(gouser.MLoggerName, "RegisterAuth Rollback err: %v", errRollback)
@@ -233,14 +232,5 @@ func (mgr *UserMgr) RegisterAuth(nickname, avatar, authName, authUID, authExtra 
 		Avatar:    avatar,
 		LastLogin: now.Unix(),
 		Created:   now.Unix(),
-		Auths: []*UserAuth{
-			&UserAuth{
-				ID:        int(aidAuth),
-				AuthName:  authName,
-				AuthUID:   authUID,
-				AuthExtra: authExtra,
-				Created:   now.Unix(),
-			},
-		},
 	}, nil
 }
