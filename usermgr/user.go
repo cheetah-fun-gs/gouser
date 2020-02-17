@@ -87,11 +87,16 @@ func (user *User) Clean() error {
 		return err
 	}
 
+	defer func() {
+		if tx != nil && err != nil {
+			if errRollback := tx.Rollback(); errRollback != nil {
+				mlogger.WarnN(gouser.MLoggerName, "UserClean Rollback err: %v", errRollback)
+			}
+		}
+	}()
+
 	_, err = tx.Exec(query, args...)
 	if err != nil {
-		if errRollback := tx.Rollback(); errRollback != nil {
-			mlogger.WarnN(gouser.MLoggerName, "UserClean Rollback err: %v", errRollback)
-		}
 		return err
 	}
 
@@ -100,9 +105,6 @@ func (user *User) Clean() error {
 		argsAuth := []interface{}{user.UID}
 		_, err = tx.Exec(queryAuth, argsAuth...)
 		if err != nil {
-			if errRollback := tx.Rollback(); errRollback != nil {
-				mlogger.WarnN(gouser.MLoggerName, "UserClean Rollback err: %v", errRollback)
-			}
 			return err
 		}
 	}
@@ -112,9 +114,6 @@ func (user *User) Clean() error {
 		argsAccessKey := []interface{}{user.UID}
 		_, err = tx.Exec(queryAccessKey, argsAccessKey...)
 		if err != nil {
-			if errRollback := tx.Rollback(); errRollback != nil {
-				mlogger.WarnN(gouser.MLoggerName, "UserClean Rollback err: %v", errRollback)
-			}
 			return err
 		}
 	}
