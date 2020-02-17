@@ -1,0 +1,119 @@
+// Package usermgr 查找用户
+package usermgr
+
+import (
+	"database/sql"
+	"fmt"
+	"time"
+
+	sqlplus "github.com/cheetah-fun-gs/goplus/dao/sql"
+)
+
+func (mgr *UserMgr) findAuths(tx *sql.Tx, uid string) ([]*UserAuth, error) {
+	query := fmt.Sprintf("SELECT * FROM %v WHERE uid = ?;", mgr.tableUserAuth.Name)
+	args := []interface{}{uid}
+
+	rows, err := tx.Query(query, args...)
+	if err != nil {
+		return nil, err
+	}
+
+	result := []*ModelUserAuth{}
+	if err = sqlplus.Select(rows, &result); err != nil {
+		return nil, err
+	}
+
+	auths := []*UserAuth{}
+	for _, val := range result {
+		auths = append(auths, &UserAuth{
+			ID:        val.ID,
+			AuthName:  val.AuthName,
+			AuthUID:   val.AuthUID,
+			AuthExtra: val.AuthExtra,
+			Created:   val.Created.Unix(),
+		})
+	}
+	return auths, nil
+}
+
+func (mgr *UserMgr) findAccessKeys(tx *sql.Tx, uid string) ([]*UserAccessKey, error) {
+	query := fmt.Sprintf("SELECT * FROM %v WHERE uid = ? AND (expire_at is NULL OR expire_at > ?);", mgr.tableUserAccessKey.Name)
+	args := []interface{}{uid, time.Now()}
+
+	rows, err := tx.Query(query, args...)
+	if err != nil {
+		return nil, err
+	}
+
+	result := []*ModelUserAccessKey{}
+	if err = sqlplus.Select(rows, &result); err != nil {
+		return nil, err
+	}
+
+	accessKeys := []*UserAccessKey{}
+	for _, val := range result {
+		var expireAt int64
+		if val.ExpireAt.Valid {
+			expireAt = val.ExpireAt.Time.Unix()
+		}
+		accessKeys = append(accessKeys, &UserAccessKey{
+			ID:        val.ID,
+			AccessKey: val.AccessKey,
+			ExpireAt:  expireAt,
+			Comment:   val.Comment,
+			Created:   val.Created.Unix(),
+		})
+	}
+	return accessKeys, nil
+}
+
+// FindAnyUser 根据用户名/邮箱/手机号 查找用户
+func (mgr *UserMgr) FindAnyUser(any string) (*User, error) {
+	query := fmt.Sprintf("SELECT * FROM %v WHERE uid = ? OR email = ? OR mobile = ?;", mgr.tableUser.Name)
+	args := []interface{}{any, any, any}
+
+	auths := []*UserAuth{}
+	accessKeys := []*UserAccessKey{}
+
+	var rows *sql.Rows
+	var err error
+	if len(mgr.authMgrs) == 0 && !mgr.config.IsEnableAccessKey {
+		// 不支持accesskey 和 第三方认证. 直接执行
+		rows, err = mgr.db.Query(query, args...)
+		if err != nil {
+			return nil, err
+		}
+	} else {
+		// 使用事务
+		tx, err := mgr.db.Begin()
+		if err != nil {
+			return nil, err
+		}
+
+		rows, err = tx.Query(query, args...)
+		if err != nil {
+			return nil, err
+		}
+	}
+
+	result := &ModelUser{}
+	if err = sqlplus.Get(rows, result); err != nil {
+		return nil, err
+	}
+
+	user := &User{
+		mgr:        mgr,
+		ID:         result.ID,
+		UID:        result.UID,
+		Email:      result.Email.String,
+		Mobile:     result.Mobile.String,
+		Nickname:   result.Nickname,
+		Avatar:     result.Avatar,
+		Extra:      result.Extra,
+		LastLogin:  result.LastLogin.Unix(),
+		Created:    result.Created.Unix(),
+		Auths:      auths,
+		AccessKeys: accessKeys,
+	}
+	return user, nil
+}

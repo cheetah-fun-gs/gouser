@@ -72,10 +72,11 @@ func (user *User) Logout(from, token string) error {
 
 // Clean 清除账号
 func (user *User) Clean() error {
+	query := fmt.Sprintf("DELETE FROM %v WHERE id = ?;", user.mgr.tableUser.Name)
+	args := []interface{}{user.ID}
+
 	// 不支持accesskey 和 第三方认证. 直接执行
 	if len(user.mgr.authMgrs) == 0 && !user.mgr.config.IsEnableAccessKey {
-		query := fmt.Sprintf("DELETE FROM %v WHERE id = ?;", user.mgr.tableUser.Name)
-		args := []interface{}{user.ID}
 		_, err := user.mgr.db.Exec(query, args...)
 		return err
 	}
@@ -86,8 +87,6 @@ func (user *User) Clean() error {
 		return err
 	}
 
-	query := fmt.Sprintf("DELETE FROM %v WHERE id = ?;", user.mgr.tableUser.Name)
-	args := []interface{}{user.ID}
 	_, err = tx.Exec(query, args...)
 	if err != nil {
 		if errRollback := tx.Rollback(); errRollback != nil {
@@ -382,13 +381,17 @@ func (user *User) UpdatePasswordWithPassword(oldRawPassword, newRawPassword stri
 
 // GenerateAccessKey 生成一个 access key
 func (user *User) GenerateAccessKey(comment string, expireAts ...time.Time) (*UserAccessKey, error) {
+	now := time.Now()
+
 	expireAt := sql.NullTime{}
 	if len(expireAts) > 0 {
+		if expireAt.Time.Before(now) {
+			return nil, fmt.Errorf("expire_at is before now")
+		}
 		expireAt.Valid = true
 		expireAt.Time = expireAts[0]
 	}
 	accessKey := user.mgr.generateAccessKey()
-	now := time.Now()
 	data := &ModelUserAccessKey{
 		AccessKey: accessKey,
 		UID:       user.UID,
