@@ -7,6 +7,8 @@ import (
 	"time"
 
 	sqlplus "github.com/cheetah-fun-gs/goplus/dao/sql"
+	mlogger "github.com/cheetah-fun-gs/goplus/multier/multilogger"
+	"github.com/cheetah-fun-gs/gouser"
 )
 
 func (mgr *UserMgr) findAuths(tx *sql.Tx, uid string) ([]*UserAuth, error) {
@@ -72,9 +74,7 @@ func (mgr *UserMgr) FindAnyUser(any string) (*User, error) {
 	query := fmt.Sprintf("SELECT * FROM %v WHERE uid = ? OR email = ? OR mobile = ?;", mgr.tableUser.Name)
 	args := []interface{}{any, any, any}
 
-	auths := []*UserAuth{}
-	accessKeys := []*UserAccessKey{}
-
+	var tx *sql.Tx
 	var rows *sql.Rows
 	var err error
 	if len(mgr.authMgrs) == 0 && !mgr.config.IsEnableAccessKey {
@@ -84,36 +84,76 @@ func (mgr *UserMgr) FindAnyUser(any string) (*User, error) {
 			return nil, err
 		}
 	} else {
-		// 使用事务
-		tx, err := mgr.db.Begin()
+		// 使用事务 虽然都是只读, 但是利用事务隔离 保障数据的原子性
+		tx, err = mgr.db.Begin()
 		if err != nil {
 			return nil, err
 		}
 
 		rows, err = tx.Query(query, args...)
 		if err != nil {
+			if errRollback := tx.Rollback(); errRollback != nil {
+				mlogger.WarnN(gouser.MLoggerName, "FindUser Rollback err: %v", errRollback)
+			}
 			return nil, err
 		}
 	}
 
 	result := &ModelUser{}
 	if err = sqlplus.Get(rows, result); err != nil {
+		if tx != nil {
+			// 使用了事务需要回滚
+			if errRollback := tx.Rollback(); errRollback != nil {
+				mlogger.WarnN(gouser.MLoggerName, "FindUser Rollback err: %v", errRollback)
+			}
+		}
 		return nil, err
 	}
 
 	user := &User{
-		mgr:        mgr,
-		ID:         result.ID,
-		UID:        result.UID,
-		Email:      result.Email.String,
-		Mobile:     result.Mobile.String,
-		Nickname:   result.Nickname,
-		Avatar:     result.Avatar,
-		Extra:      result.Extra,
-		LastLogin:  result.LastLogin.Unix(),
-		Created:    result.Created.Unix(),
-		Auths:      auths,
-		AccessKeys: accessKeys,
+		mgr:       mgr,
+		ID:        result.ID,
+		UID:       result.UID,
+		Email:     result.Email.String,
+		Mobile:    result.Mobile.String,
+		Nickname:  result.Nickname,
+		Avatar:    result.Avatar,
+		Extra:     result.Extra,
+		LastLogin: result.LastLogin.Unix(),
+		Created:   result.Created.Unix(),
 	}
+
+	if len(mgr.authMgrs) == 0 && !mgr.config.IsEnableAccessKey {
+		return user, nil
+	}
+
+	auths := []*UserAuth{}
+	accessKeys := []*UserAccessKey{}
+
+	if len(mgr.authMgrs) > 0 {
+		auths, err = mgr.findAuths(tx, user.UID)
+		if err != nil {
+			if errRollback := tx.Rollback(); errRollback != nil {
+				mlogger.WarnN(gouser.MLoggerName, "FindUser Rollback err: %v", errRollback)
+			}
+			return nil, err
+		}
+	}
+	if mgr.config.IsEnableAccessKey {
+		accessKeys, err = mgr.findAccessKeys(tx, user.UID)
+		if err != nil {
+			if errRollback := tx.Rollback(); errRollback != nil {
+				mlogger.WarnN(gouser.MLoggerName, "FindUser Rollback err: %v", errRollback)
+			}
+			return nil, err
+		}
+	}
+
+	if errCommit := tx.Commit(); errCommit != nil {
+		mlogger.WarnN(gouser.MLoggerName, "FindUser Commit err: %v", errCommit)
+	}
+
+	user.Auths = auths
+	user.AccessKeys = accessKeys
 	return user, nil
 }
