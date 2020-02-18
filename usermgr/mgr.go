@@ -121,7 +121,7 @@ func New(name, secret string, pool *redigo.Pool, db *sql.DB, configs ...Config) 
 		generateCode:      defaultGenerateCode,
 	}
 	if config.IsEnableAccessKey {
-		mgr.accessKeyCacher = cacher.New(tableUserAccessKeyName, pool, &accessKeyMgr{
+		mgr.accessKeyCacher = cacher.New(tableUserAccessKeyName, pool, &accessKeyCacher{
 			db: db,
 			tableUserAccessKey: &modelTable{
 				Name:      tableUserAccessKeyName,
