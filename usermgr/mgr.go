@@ -236,7 +236,12 @@ func (mgr *UserMgr) getPassword(rawPassword string) string {
 }
 
 // VerifyToken 验证token
-func (mgr *UserMgr) VerifyToken(uid, from, token string) (ok bool, err error) {
+func (mgr *UserMgr) VerifyToken(uid, token string) (ok bool, err error) {
+	return mgr.VerifyTokenWithFrom(uid, fromDefault, token)
+}
+
+// VerifyTokenWithFrom 验证token
+func (mgr *UserMgr) VerifyTokenWithFrom(uid, from, token string) (ok bool, err error) {
 	return mgr.tokenmgr.Verify(uid, from, token)
 }
 
