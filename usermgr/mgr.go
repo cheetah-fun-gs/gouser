@@ -41,6 +41,7 @@ type UserMgr struct {
 	config             *Config
 	name               string
 	secret             string // 密钥
+	mlogname           string
 }
 
 // Config ...
@@ -97,6 +98,7 @@ func New(name, secret string, pool *redigo.Pool, db *sql.DB, configs ...Config) 
 	mgr := &UserMgr{
 		name:     name,
 		secret:   secret,
+		mlogname: "default",
 		config:   config,
 		pool:     pool,
 		db:       db,
@@ -127,6 +129,12 @@ func New(name, secret string, pool *redigo.Pool, db *sql.DB, configs ...Config) 
 			}})
 	}
 	return mgr
+}
+
+// SetMLogName 设置日志
+func (mgr *UserMgr) SetMLogName(name string) {
+	mgr.mlogname = name
+	mgr.accessKeyCacher.SetMLogName(name)
 }
 
 // SetAuthMgr 设置第三方认证

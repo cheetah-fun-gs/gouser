@@ -8,7 +8,6 @@ import (
 	"github.com/cheetah-fun-gs/goplus/locker"
 	mlogger "github.com/cheetah-fun-gs/goplus/multier/multilogger"
 	uuidplus "github.com/cheetah-fun-gs/goplus/uuid"
-	"github.com/cheetah-fun-gs/gouser"
 	redigo "github.com/gomodule/redigo/redis"
 )
 
@@ -26,6 +25,7 @@ type DefaultMgr struct {
 	expire2       int    // 被刷新凭证的保留时间, 不宜太长, 可为0
 	pool          *redigo.Pool
 	generateToken func(uid, from string) string
+	mlogname      string
 }
 
 // New 获得一个新的token管理器
@@ -38,6 +38,7 @@ func New(name string, pool *redigo.Pool, expires ...int) *DefaultMgr {
 		expire1:       3600,
 		expire2:       300,
 		generateToken: defaultGenerateToken,
+		mlogname:      "default",
 	}
 	if len(expires) >= 1 && expires[0] != 0 {
 		mgr.expire1 = expires[0]
@@ -49,6 +50,11 @@ func New(name string, pool *redigo.Pool, expires ...int) *DefaultMgr {
 		panic("expire1 is below expire2")
 	}
 	return mgr
+}
+
+// SetMLogName 设置token方法
+func (s *DefaultMgr) SetMLogName(name string) {
+	s.mlogname = name
 }
 
 // SetGenerateToken 设置token方法
@@ -132,7 +138,7 @@ func (s *DefaultMgr) Generate(uid, from string) (token string, deadline int64, e
 
 	for i := 1; i < len(commands); i++ {
 		if _, err = conn.Receive(); err != nil {
-			mlogger.WarnN(gouser.MLoggerName, "Generate token err: %v, %v", commands[i], err)
+			mlogger.WarnN(s.mlogname, "Generate token err: %v, %v", commands[i], err)
 		}
 	}
 

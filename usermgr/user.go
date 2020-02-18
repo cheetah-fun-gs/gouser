@@ -8,7 +8,6 @@ import (
 
 	sqlplus "github.com/cheetah-fun-gs/goplus/dao/sql"
 	mlogger "github.com/cheetah-fun-gs/goplus/multier/multilogger"
-	"github.com/cheetah-fun-gs/gouser"
 )
 
 // User 用户
@@ -61,9 +60,9 @@ func (user *User) LoginWithFrom(from string) (token string, deadline int64, err 
 	args := []interface{}{now, now, user.ID}
 	updatedCount, errUpdate := sqlplus.RowsAffected(user.mgr.db.Exec(query, args...))
 	if errUpdate != nil {
-		mlogger.WarnN(gouser.MLoggerName, "UserLogin Update err: %v", errUpdate)
+		mlogger.WarnN(user.mgr.mlogname, "UserLogin Update err: %v", errUpdate)
 	} else if updatedCount == 0 {
-		mlogger.WarnN(gouser.MLoggerName, "UserLogin Update err: not found")
+		mlogger.WarnN(user.mgr.mlogname, "UserLogin Update err: not found")
 	}
 	return
 }
@@ -98,7 +97,7 @@ func (user *User) Clean() error {
 	defer func() {
 		if err != nil {
 			if errRollback := tx.Rollback(); errRollback != nil {
-				mlogger.WarnN(gouser.MLoggerName, "UserClean Rollback err: %v", errRollback)
+				mlogger.WarnN(user.mgr.mlogname, "UserClean Rollback err: %v", errRollback)
 			}
 		}
 	}()

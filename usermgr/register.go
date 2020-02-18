@@ -8,7 +8,6 @@ import (
 
 	sqlplus "github.com/cheetah-fun-gs/goplus/dao/sql"
 	mlogger "github.com/cheetah-fun-gs/goplus/multier/multilogger"
-	"github.com/cheetah-fun-gs/gouser"
 )
 
 // RegisterLAPD 密码用户注册
@@ -192,7 +191,7 @@ func (mgr *UserMgr) registerAuth(authName, authUID, authExtra string) (*User, er
 	defer func() {
 		if err != nil {
 			if errRollback := tx.Rollback(); errRollback != nil {
-				mlogger.WarnN(gouser.MLoggerName, "RegisterAuth Rollback err: %v", errRollback)
+				mlogger.WarnN(mgr.mlogname, "RegisterAuth Rollback err: %v", errRollback)
 			}
 		}
 	}()
@@ -211,7 +210,7 @@ func (mgr *UserMgr) registerAuth(authName, authUID, authExtra string) (*User, er
 	aid, err = sqlplus.LastInsertId(tx.Exec(query, args...))
 	if err != nil {
 		if errRollback := tx.Rollback(); errRollback != nil {
-			mlogger.WarnN(gouser.MLoggerName, "RegisterAuth Rollback err: %v", errRollback)
+			mlogger.WarnN(mgr.mlogname, "RegisterAuth Rollback err: %v", errRollback)
 		}
 		return nil, err
 	}
@@ -228,7 +227,7 @@ func (mgr *UserMgr) registerAuth(authName, authUID, authExtra string) (*User, er
 	_, err = sqlplus.LastInsertId(tx.Exec(authQuery, authArgs...))
 	if err != nil {
 		if errRollback := tx.Rollback(); errRollback != nil {
-			mlogger.WarnN(gouser.MLoggerName, "RegisterAuth Rollback err: %v", errRollback)
+			mlogger.WarnN(mgr.mlogname, "RegisterAuth Rollback err: %v", errRollback)
 		}
 		return nil, err
 	}
