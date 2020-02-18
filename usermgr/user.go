@@ -12,7 +12,12 @@ import (
 
 // User 用户
 type User struct {
-	mgr       *UserMgr
+	mgr *UserMgr
+	*UserData
+}
+
+// UserData 用户数据
+type UserData struct {
 	ID        int    `json:"id,omitempty"`
 	UID       string `json:"uid,omitempty"`
 	Email     string `json:"email,omitempty"`
@@ -60,9 +65,15 @@ func (user *User) LoginWithFrom(from string) (token string, deadline int64, err 
 	args := []interface{}{now, now, user.ID}
 	updatedCount, errUpdate := sqlplus.RowsAffected(user.mgr.db.Exec(query, args...))
 	if errUpdate != nil {
-		mlogger.WarnN(user.mgr.mlogname, "UserLogin Update err: %v", errUpdate)
+		mlogger.WarnN(user.mgr.mlogname, "UserLogin Update %v err: %v", user.UID, errUpdate)
 	} else if updatedCount == 0 {
-		mlogger.WarnN(user.mgr.mlogname, "UserLogin Update err: not found")
+		mlogger.WarnN(user.mgr.mlogname, "UserLogin Update %v err: not found", user.UID)
+	}
+
+	user.LastLogin = now.Unix()
+	// 设置缓存
+	if err = user.mgr.userDataUIDCacher.Set(user.UserData, user.UID); err != nil {
+		return
 	}
 	return
 }
@@ -79,6 +90,20 @@ func (user *User) LogoutWithFrom(from string) error {
 
 // Clean 清除账号
 func (user *User) Clean() error {
+	var err error
+
+	defer func() {
+		if err == nil {
+			// 清除缓存
+			if cleanErr := user.mgr.userDataUIDCacher.Del(user.UID); cleanErr != nil {
+				mlogger.WarnN(user.mgr.mlogname, "userDataUIDCacher.Del %v err: %v", user.UID, cleanErr)
+			}
+			if cleanErr := user.mgr.tokenmgr.CleanAll(user.UID); cleanErr != nil {
+				mlogger.WarnN(user.mgr.mlogname, "tokenmgr.CleanAll %v err: %v", user.UID, cleanErr)
+			}
+		}
+	}()
+
 	query := fmt.Sprintf("DELETE FROM %v WHERE id = ?;", user.mgr.tableUser.Name)
 	args := []interface{}{user.ID}
 
@@ -88,8 +113,15 @@ func (user *User) Clean() error {
 		return err
 	}
 
+	var aks []*UserAccessKey
+	aks, err = user.GetAccessKeys(true)
+	if err != nil {
+		return err
+	}
+
 	// 使用事务
-	tx, err := user.mgr.db.Begin()
+	var tx *sql.Tx
+	tx, err = user.mgr.db.Begin()
 	if err != nil {
 		return err
 	}
@@ -97,7 +129,7 @@ func (user *User) Clean() error {
 	defer func() {
 		if err != nil {
 			if errRollback := tx.Rollback(); errRollback != nil {
-				mlogger.WarnN(user.mgr.mlogname, "UserClean Rollback err: %v", errRollback)
+				mlogger.WarnN(user.mgr.mlogname, "UserClean Rollback %v err: %v", user.UID, errRollback)
 			}
 		}
 	}()
@@ -125,7 +157,16 @@ func (user *User) Clean() error {
 		}
 	}
 
-	return tx.Commit()
+	if commitErr := tx.Commit(); commitErr != nil {
+		return commitErr
+	}
+
+	for _, ak := range aks {
+		if cleanErr := user.mgr.accessKeyCacher.Del(user.UID, ak.ID); err != nil {
+			mlogger.WarnN(user.mgr.mlogname, "accessKeyCacher.Del %v %v err: %v", user.UID, ak.ID, cleanErr)
+		}
+	}
+	return nil
 }
 
 // BindAuth 绑定第三方认证
@@ -233,6 +274,10 @@ func (user *User) UpdateInfo(nickname, avatar, extra *string) error {
 	if extra != nil {
 		user.Extra = *extra
 	}
+	// 设置缓存
+	if err = user.mgr.userDataUIDCacher.Set(user.UserData, user.UID); err != nil {
+		return err
+	}
 	return nil
 }
 
@@ -266,6 +311,10 @@ func (user *User) UpdateUID(uid string) error {
 	}
 
 	user.UID = uid
+	// 设置缓存
+	if err = user.mgr.userDataUIDCacher.Set(user.UserData, user.UID); err != nil {
+		return err
+	}
 	return nil
 }
 
@@ -274,7 +323,7 @@ func (user *User) UpdateEmailApplyCode() (code string, expire int, err error) {
 	return user.mgr.ApplyCode(user.UID)
 }
 
-// UpdateEmail 更新uid
+// UpdateEmail 更新邮箱
 func (user *User) UpdateEmail(email, code string) error {
 	ok, err := user.mgr.VerifyCode(code, user.UID)
 	if err != nil {
@@ -296,6 +345,10 @@ func (user *User) UpdateEmail(email, code string) error {
 	}
 
 	user.Email = email
+	// 设置缓存
+	if err = user.mgr.userDataUIDCacher.Set(user.UserData, user.UID); err != nil {
+		return err
+	}
 	return nil
 }
 
@@ -326,6 +379,10 @@ func (user *User) UpdateMobile(mobile, code string) error {
 	}
 
 	user.Mobile = mobile
+	// 设置缓存
+	if err = user.mgr.userDataUIDCacher.Set(user.UserData, user.UID); err != nil {
+		return err
+	}
 	return nil
 }
 
@@ -355,6 +412,7 @@ func (user *User) UpdatePasswordWithCode(rawPassword, code string) error {
 	if updateCount == 0 {
 		return ErrorNotFound
 	}
+
 	return nil
 }
 

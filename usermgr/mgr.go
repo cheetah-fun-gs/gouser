@@ -35,7 +35,8 @@ type UserMgr struct {
 	generateAccessKey  func() string                                   // 生成一个全新的AccessKey
 	generateSign       func(accessKey string, data interface{}) string // AccessKey校验算法
 	authMgrs           []authmgr.AuthMgr                               // 支持的第三方认证方式
-	accessKeyCacher    *cacher.Cacher
+	accessKeyCacher    *cacher.Cacher                                  // access key 缓存
+	userDataUIDCacher  *cacher.Cacher                                  // modelUser 对 uid 缓存
 	pool               *redigo.Pool
 	db                 *sql.DB
 	config             *Config
@@ -119,6 +120,12 @@ func New(name, secret string, pool *redigo.Pool, db *sql.DB, configs ...Config) 
 		generateAccessKey: defaultGenerateAccessKey,
 		generateSign:      defaultGenerateSign,
 		generateCode:      defaultGenerateCode,
+		userDataUIDCacher: cacher.New(tableUserName, pool, &userDataUIDCacher{
+			db: db,
+			tableUser: &modelTable{
+				Name:      tableUserName,
+				CreateSQL: fmt.Sprintf(TableUser, tableUserName),
+			}}),
 	}
 	if config.IsEnableAccessKey {
 		mgr.accessKeyCacher = cacher.New(tableUserAccessKeyName, pool, &accessKeyCacher{

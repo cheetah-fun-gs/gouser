@@ -8,30 +8,69 @@ import (
 	sqlplus "github.com/cheetah-fun-gs/goplus/dao/sql"
 )
 
-func (mgr *UserMgr) findUser(query string, args ...interface{}) (bool, *User, error) {
-	rows, err := mgr.db.Query(query, args...)
+type userDataUIDCacher struct {
+	db        *sql.DB
+	tableUser *modelTable // 用户表
+}
+
+// Get 回源方法
+func (uduc *userDataUIDCacher) Get(dest interface{}, args ...interface{}) (bool, error) {
+	uid := args[0].(string)
+	query := fmt.Sprintf("SELECT * FROM %v WHERE uid = ?;", uduc.tableUser.Name)
+	queryArgs := []interface{}{uid}
+
+	ok, err := findUserData(uduc.db, dest.(*UserData), query, queryArgs...)
+	if err != nil || !ok {
+		return ok, err
+	}
+	return true, nil
+}
+
+// Set 仅管理缓存, 外部管理源
+func (uduc *userDataUIDCacher) Set(data interface{}, args ...interface{}) error {
+	return nil
+}
+
+// Del 仅管理缓存, 外部管理源
+func (uduc *userDataUIDCacher) Del(args ...interface{}) error {
+	return nil
+}
+
+func findUserData(db *sql.DB, userData *UserData, query string, args ...interface{}) (bool, error) {
+	rows, err := db.Query(query, args...)
 	if err != nil {
-		return false, nil, err
+		return false, err
 	}
 
 	result := &ModelUser{}
 	if err = sqlplus.Get(rows, result); err == sql.ErrNoRows {
-		return false, nil, nil
+		return false, nil
 	} else if err != nil {
-		return false, nil, err
+		return false, err
+	}
+
+	userData.ID = result.ID
+	userData.UID = result.UID
+	userData.Email = result.Email.String
+	userData.Mobile = result.Mobile.String
+	userData.Nickname = result.Nickname
+	userData.Avatar = result.Avatar
+	userData.Extra = result.Extra
+	userData.LastLogin = result.LastLogin.Unix()
+	userData.Created = result.Created.Unix()
+	return true, nil
+}
+
+func (mgr *UserMgr) findUser(query string, args ...interface{}) (bool, *User, error) {
+	result := &UserData{}
+	ok, err := findUserData(mgr.db, result, query, args...)
+	if err != nil || !ok {
+		return ok, nil, err
 	}
 
 	user := &User{
-		mgr:       mgr,
-		ID:        result.ID,
-		UID:       result.UID,
-		Email:     result.Email.String,
-		Mobile:    result.Mobile.String,
-		Nickname:  result.Nickname,
-		Avatar:    result.Avatar,
-		Extra:     result.Extra,
-		LastLogin: result.LastLogin.Unix(),
-		Created:   result.Created.Unix(),
+		mgr:      mgr,
+		UserData: result,
 	}
 	return true, user, nil
 }
@@ -46,10 +85,17 @@ func (mgr *UserMgr) FindUserByAny(any string) (bool, *User, error) {
 
 // FindUserByUID 根据用户名 查找用户
 func (mgr *UserMgr) FindUserByUID(uid string) (bool, *User, error) {
-	query := fmt.Sprintf("SELECT * FROM %v WHERE uid = ?;", mgr.tableUser.Name)
-	args := []interface{}{uid}
+	result := &UserData{}
+	ok, err := mgr.userDataUIDCacher.Get(result, uid)
+	if err != nil || !ok {
+		return ok, nil, err
+	}
 
-	return mgr.findUser(query, args...)
+	user := &User{
+		mgr:      mgr,
+		UserData: result,
+	}
+	return true, user, nil
 }
 
 // FindUserByEmail 根据邮箱 查找用户

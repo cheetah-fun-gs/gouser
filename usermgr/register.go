@@ -33,13 +33,15 @@ func (mgr *UserMgr) RegisterLAPD(uid, rawPassword string) (*User, error) {
 	}
 
 	return &User{
-		mgr:       mgr,
-		ID:        int(aid),
-		UID:       uid,
-		Nickname:  nickname,
-		Avatar:    avatar,
-		LastLogin: now.Unix(),
-		Created:   now.Unix(),
+		mgr: mgr,
+		UserData: &UserData{
+			ID:        int(aid),
+			UID:       uid,
+			Nickname:  nickname,
+			Avatar:    avatar,
+			LastLogin: now.Unix(),
+			Created:   now.Unix(),
+		},
 	}, nil
 }
 
@@ -78,14 +80,16 @@ func (mgr *UserMgr) RegisterEmail(email, code string) (*User, error) {
 	}
 
 	return &User{
-		mgr:       mgr,
-		ID:        int(aid),
-		UID:       uid,
-		Email:     email,
-		Nickname:  nickname,
-		Avatar:    avatar,
-		LastLogin: now.Unix(),
-		Created:   now.Unix(),
+		mgr: mgr,
+		UserData: &UserData{
+			ID:        int(aid),
+			UID:       uid,
+			Email:     email,
+			Nickname:  nickname,
+			Avatar:    avatar,
+			LastLogin: now.Unix(),
+			Created:   now.Unix(),
+		},
 	}, nil
 }
 
@@ -128,13 +132,16 @@ func (mgr *UserMgr) registerMobile(mobile string) (*User, error) {
 	}
 
 	return &User{
-		ID:        int(aid),
-		UID:       uid,
-		Mobile:    mobile,
-		Nickname:  nickname,
-		Avatar:    avatar,
-		LastLogin: now.Unix(),
-		Created:   now.Unix(),
+		mgr: mgr,
+		UserData: &UserData{
+			ID:        int(aid),
+			UID:       uid,
+			Mobile:    mobile,
+			Nickname:  nickname,
+			Avatar:    avatar,
+			LastLogin: now.Unix(),
+			Created:   now.Unix(),
+		},
 	}, nil
 }
 
@@ -159,13 +166,15 @@ func (mgr *UserMgr) RegisterTourist() (*User, error) {
 	}
 
 	return &User{
-		mgr:       mgr,
-		ID:        int(aid),
-		UID:       uid,
-		Nickname:  nickname,
-		Avatar:    avatar,
-		LastLogin: now.Unix(),
-		Created:   now.Unix(),
+		mgr: mgr,
+		UserData: &UserData{
+			ID:        int(aid),
+			UID:       uid,
+			Nickname:  nickname,
+			Avatar:    avatar,
+			LastLogin: now.Unix(),
+			Created:   now.Unix(),
+		},
 	}, nil
 }
 
@@ -191,7 +200,7 @@ func (mgr *UserMgr) registerAuth(authName, authUID, authExtra string) (*User, er
 	defer func() {
 		if err != nil {
 			if errRollback := tx.Rollback(); errRollback != nil {
-				mlogger.WarnN(mgr.mlogname, "RegisterAuth Rollback err: %v", errRollback)
+				mlogger.WarnN(mgr.mlogname, "RegisterAuth Rollback %v %v err: %v", authName, authUID, errRollback)
 			}
 		}
 	}()
@@ -209,9 +218,6 @@ func (mgr *UserMgr) registerAuth(authName, authUID, authExtra string) (*User, er
 	var aid int
 	aid, err = sqlplus.LastInsertId(tx.Exec(query, args...))
 	if err != nil {
-		if errRollback := tx.Rollback(); errRollback != nil {
-			mlogger.WarnN(mgr.mlogname, "RegisterAuth Rollback err: %v", errRollback)
-		}
 		return nil, err
 	}
 
@@ -226,9 +232,6 @@ func (mgr *UserMgr) registerAuth(authName, authUID, authExtra string) (*User, er
 	authQuery, authArgs := sqlplus.GenInsert(mgr.tableUserAuth.Name, authData)
 	_, err = sqlplus.LastInsertId(tx.Exec(authQuery, authArgs...))
 	if err != nil {
-		if errRollback := tx.Rollback(); errRollback != nil {
-			mlogger.WarnN(mgr.mlogname, "RegisterAuth Rollback err: %v", errRollback)
-		}
 		return nil, err
 	}
 
@@ -237,12 +240,14 @@ func (mgr *UserMgr) registerAuth(authName, authUID, authExtra string) (*User, er
 	}
 
 	return &User{
-		mgr:       mgr,
-		ID:        int(aid),
-		UID:       uid,
-		Nickname:  nickname,
-		Avatar:    avatar,
-		LastLogin: now.Unix(),
-		Created:   now.Unix(),
+		mgr: mgr,
+		UserData: &UserData{
+			ID:        int(aid),
+			UID:       uid,
+			Nickname:  nickname,
+			Avatar:    avatar,
+			LastLogin: now.Unix(),
+			Created:   now.Unix(),
+		},
 	}, nil
 }

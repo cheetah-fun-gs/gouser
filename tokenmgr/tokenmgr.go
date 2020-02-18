@@ -3,6 +3,7 @@ package tokenmgr
 
 import (
 	"fmt"
+	"strings"
 	"time"
 
 	"github.com/cheetah-fun-gs/goplus/locker"
@@ -16,9 +17,11 @@ type TokenMgr interface {
 	Generate(uid, from string) (token string, deadline int64, err error) // 生成一个新的token
 	Verify(uid, from, token string) (ok bool, err error)                 // 验证token是否有效
 	Clean(uid, from string) error                                        // 清除token
+	CleanAll(uid string) error                                           // 清除token
 }
 
 // DefaultMgr 默认管理器
+// 数据结构 uid : map[from-token]create_time
 type DefaultMgr struct {
 	name          string // 管理器名称
 	expire1       int    // 凭证的超时时间, 不宜太短应该比expire2长
@@ -52,12 +55,12 @@ func New(name string, pool *redigo.Pool, expires ...int) *DefaultMgr {
 	return mgr
 }
 
-// SetMLogName 设置token方法
+// SetMLogName 设置日志名
 func (s *DefaultMgr) SetMLogName(name string) {
 	s.mlogname = name
 }
 
-// SetGenerateToken 设置token方法
+// SetGenerateToken 设置生成token方法
 func (s *DefaultMgr) SetGenerateToken(v func(uid, from string) string) {
 	s.generateToken = v
 }
@@ -66,9 +69,16 @@ func defaultGenerateToken(uid, from string) string {
 	return uuidplus.NewV4().Base62()
 }
 
-// map[token]create_time
-func getTokenKey(name, uid, from string) string {
-	return fmt.Sprintf("%s:%s:%s:token", name, uid, from)
+func getTokenKey(name, uid string) string {
+	return fmt.Sprintf("%s:%s:token", name, uid)
+}
+
+func getTokenField(from, token string) string {
+	return fmt.Sprintf("%s|%s", from, token)
+}
+
+func isFromToken(field, from string) bool {
+	return strings.HasPrefix(field, from+"|")
 }
 
 // Generate ...
@@ -76,8 +86,8 @@ func (s *DefaultMgr) Generate(uid, from string) (token string, deadline int64, e
 	conn := s.pool.Get()
 	defer conn.Close()
 
-	tokenKey := getTokenKey(s.name, uid, from)
-	lockName := tokenKey + ":locker"
+	tokenKey := getTokenKey(s.name, uid)
+	lockName := fmt.Sprintf("%s:%s:locker", tokenKey, from)
 
 	// 加锁
 	var l *locker.Locker
@@ -98,24 +108,28 @@ func (s *DefaultMgr) Generate(uid, from string) (token string, deadline int64, e
 	}
 
 	var latestDeadline int64
-	for _, oldDeadline := range result {
+	for filed, oldDeadline := range result {
+		if !isFromToken(filed, from) {
+			delete(result, filed) // 不是该from的数据忽略
+			continue
+		}
 		if oldDeadline > latestDeadline {
 			latestDeadline = oldDeadline
 		}
 	}
 
 	commands := []string{}
-	for oldToken, oldDeadline := range result {
+	for filed, oldDeadline := range result {
 		if oldDeadline < latestDeadline || oldDeadline < now.Unix() {
-			if err = conn.Send("HDEL", tokenKey, oldToken); err != nil { // 废弃或过期的token全部删除
+			if err = conn.Send("HDEL", tokenKey, filed); err != nil { // 废弃或过期的token全部删除
 				return
 			}
-			commands = append(commands, fmt.Sprint("HDEL", tokenKey, oldToken))
+			commands = append(commands, fmt.Sprint("HDEL", tokenKey, filed))
 		} else if oldDeadline > now.Unix()+int64(s.expire2) {
-			if err = conn.Send("HSET", tokenKey, oldToken, now.Unix()+int64(s.expire2)); err != nil { // 未失效的token 5分钟后失效
+			if err = conn.Send("HSET", tokenKey, filed, now.Unix()+int64(s.expire2)); err != nil { // 未失效的token 5分钟后失效
 				return
 			}
-			commands = append(commands, fmt.Sprint("HSET", tokenKey, oldToken, now.Unix()+int64(s.expire2)))
+			commands = append(commands, fmt.Sprint("HSET", tokenKey, filed, now.Unix()+int64(s.expire2)))
 		}
 	}
 
@@ -126,10 +140,11 @@ func (s *DefaultMgr) Generate(uid, from string) (token string, deadline int64, e
 	commands = append(commands, fmt.Sprint("EXPIREAT", tokenKey, deadline))
 
 	// 设定token和deadline
-	if err = conn.Send("HSET", tokenKey, token, deadline); err != nil {
+	tokenField := getTokenField(from, token)
+	if err = conn.Send("HSET", tokenKey, tokenField, deadline); err != nil {
 		return
 	}
-	commands = append(commands, fmt.Sprint("HSET", tokenKey, token, deadline))
+	commands = append(commands, fmt.Sprint("HSET", tokenKey, tokenField, deadline))
 
 	// 执行
 	if err = conn.Flush(); err != nil {
@@ -154,23 +169,43 @@ func (s *DefaultMgr) Verify(uid, from, token string) (ok bool, err error) {
 	conn := s.pool.Get()
 	defer conn.Close()
 
-	tokenKey := getTokenKey(s.name, uid, from)
+	tokenKey := getTokenKey(s.name, uid)
+	tokenField := getTokenField(from, token)
 
 	var deadline int64
-	deadline, err = redigo.Int64(conn.Do("HGET", tokenKey, token))
+	deadline, err = redigo.Int64(conn.Do("HGET", tokenKey, tokenField))
 	if err != nil && err != redigo.ErrNil {
 		return
 	}
-
 	return deadline > time.Now().Unix(), nil
 }
 
 // Clean ...
-func (s *DefaultMgr) Clean(uid, from string) (err error) {
+func (s *DefaultMgr) Clean(uid, from string) error {
 	conn := s.pool.Get()
 	defer conn.Close()
 
-	tokenKey := getTokenKey(s.name, uid, from)
+	tokenKey := getTokenKey(s.name, uid)
+	fields, err := redigo.Strings(conn.Do("HKEYS", tokenKey))
+	if err != nil {
+		return err
+	}
+
+	for _, field := range fields {
+		if isFromToken(field, from) {
+			conn.Send("HDEL", tokenKey, field)
+		}
+	}
+
+	return conn.Flush()
+}
+
+// CleanAll ...
+func (s *DefaultMgr) CleanAll(uid string) (err error) {
+	conn := s.pool.Get()
+	defer conn.Close()
+
+	tokenKey := getTokenKey(s.name, uid)
 	_, err = conn.Do("DEL", tokenKey)
 	return
 }
