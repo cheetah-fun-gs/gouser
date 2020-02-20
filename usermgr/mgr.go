@@ -231,6 +231,18 @@ func (mgr *UserMgr) TablesCreateSQL() []string {
 	return result
 }
 
+// TableNames 表名
+func (mgr *UserMgr) TableNames() []string {
+	result := []string{mgr.tableUser.Name}
+	if len(mgr.authMgrs) > 0 {
+		result = append(result, mgr.tableUserAuth.Name)
+	}
+	if mgr.config.IsEnableAccessKey {
+		result = append(result, mgr.tableUserAccessKey.Name)
+	}
+	return result
+}
+
 func (mgr *UserMgr) getPassword(rawPassword string) string {
 	return uuidplus.NewV5(mgr.secret, rawPassword).Base62()
 }

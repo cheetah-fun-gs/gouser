@@ -63,11 +63,8 @@ func (user *User) LoginWithFrom(from string) (token string, deadline int64, err 
 	query := fmt.Sprintf("UPDATE %v Set last_login = ?, updated = ? WHERE id = ?;",
 		user.mgr.tableUser.Name)
 	args := []interface{}{now, now, user.ID}
-	updatedCount, errUpdate := sqlplus.RowsAffected(user.mgr.db.Exec(query, args...))
-	if errUpdate != nil {
+	if _, errUpdate := sqlplus.RowsAffected(user.mgr.db.Exec(query, args...)); errUpdate != nil {
 		mlogger.WarnN(user.mgr.mlogname, "UserLogin Update %v err: %v", user.UID, errUpdate)
-	} else if updatedCount == 0 {
-		mlogger.WarnN(user.mgr.mlogname, "UserLogin Update %v err: not found", user.UID)
 	}
 
 	user.LastLogin = now.Unix()
@@ -194,12 +191,8 @@ func (user *User) BindAuth(authName string, v interface{}) error {
 func (user *User) UnbindAuth(authName string) error {
 	query := fmt.Sprintf("DELETE FROM %v WHERE uid = ? AND auth_name = ?;", user.mgr.tableUserAuth.Name)
 	args := []interface{}{user.UID, authName}
-	updateCount, err := sqlplus.RowsAffected(user.mgr.db.Exec(query, args...))
-	if err != nil {
+	if _, err := sqlplus.RowsAffected(user.mgr.db.Exec(query, args...)); err != nil {
 		return err
-	}
-	if updateCount == 0 {
-		return ErrorNotFound
 	}
 	return nil
 }
@@ -257,12 +250,8 @@ func (user *User) UpdateInfo(nickname, avatar, extra *string) error {
 	query := fmt.Sprintf("UPDATE %v Set %v, updated = ? WHERE id = ?;",
 		strings.Join(splits, ", "), user.mgr.tableUser.Name)
 	args = append(args, now, user.ID)
-	updateCount, err := sqlplus.RowsAffected(user.mgr.db.Exec(query, args...))
-	if err != nil {
+	if _, err := sqlplus.RowsAffected(user.mgr.db.Exec(query, args...)); err != nil {
 		return err
-	}
-	if updateCount == 0 {
-		return ErrorNotFound
 	}
 
 	if nickname != nil {
@@ -275,7 +264,7 @@ func (user *User) UpdateInfo(nickname, avatar, extra *string) error {
 		user.Extra = *extra
 	}
 	// 设置缓存
-	if err = user.mgr.userDataUIDCacher.Set(user.UserData, user.UID); err != nil {
+	if err := user.mgr.userDataUIDCacher.Set(user.UserData, user.UID); err != nil {
 		return err
 	}
 	return nil
@@ -287,12 +276,8 @@ func (user *User) UpdateAuthInfo(authName, authExtra string) error {
 	query := fmt.Sprintf("UPDATE %v Set auth_extra = ?, updated = ? WHERE uid = ? AND auth_name = ?;",
 		user.mgr.tableUserAuth.Name)
 	args := []interface{}{authExtra, now, user.UID, authName}
-	updateCount, err := sqlplus.RowsAffected(user.mgr.db.Exec(query, args...))
-	if err != nil {
+	if _, err := sqlplus.RowsAffected(user.mgr.db.Exec(query, args...)); err != nil {
 		return err
-	}
-	if updateCount == 0 {
-		return ErrorNotFound
 	}
 	return nil
 }
@@ -302,17 +287,13 @@ func (user *User) UpdateUID(uid string) error {
 	now := time.Now()
 	query := fmt.Sprintf("UPDATE %v Set uid = ?, updated = ? WHERE id = ?;", user.mgr.tableUser.Name)
 	args := []interface{}{uid, now, user.ID}
-	updateCount, err := sqlplus.RowsAffected(user.mgr.db.Exec(query, args...))
-	if err != nil {
+	if _, err := sqlplus.RowsAffected(user.mgr.db.Exec(query, args...)); err != nil {
 		return err
-	}
-	if updateCount == 0 {
-		return ErrorNotFound
 	}
 
 	user.UID = uid
 	// 设置缓存
-	if err = user.mgr.userDataUIDCacher.Set(user.UserData, user.UID); err != nil {
+	if err := user.mgr.userDataUIDCacher.Set(user.UserData, user.UID); err != nil {
 		return err
 	}
 	return nil
@@ -336,12 +317,8 @@ func (user *User) UpdateEmail(email, code string) error {
 	now := time.Now()
 	query := fmt.Sprintf("UPDATE %v Set email = ?, updated = ? WHERE id = ?;", user.mgr.tableUser.Name)
 	args := []interface{}{email, now, user.ID}
-	updateCount, err := sqlplus.RowsAffected(user.mgr.db.Exec(query, args...))
-	if err != nil {
+	if _, err = sqlplus.RowsAffected(user.mgr.db.Exec(query, args...)); err != nil {
 		return err
-	}
-	if updateCount == 0 {
-		return ErrorNotFound
 	}
 
 	user.Email = email
@@ -370,12 +347,8 @@ func (user *User) UpdateMobile(mobile, code string) error {
 	now := time.Now()
 	query := fmt.Sprintf("UPDATE %v Set mobile = ?, updated = ? WHERE id = ?;", user.mgr.tableUser.Name)
 	args := []interface{}{mobile, now, user.ID}
-	updateCount, err := sqlplus.RowsAffected(user.mgr.db.Exec(query, args...))
-	if err != nil {
+	if _, err = sqlplus.RowsAffected(user.mgr.db.Exec(query, args...)); err != nil {
 		return err
-	}
-	if updateCount == 0 {
-		return ErrorNotFound
 	}
 
 	user.Mobile = mobile
@@ -405,14 +378,9 @@ func (user *User) UpdatePasswordWithCode(rawPassword, code string) error {
 	now := time.Now()
 	query := fmt.Sprintf("UPDATE %v Set password = ?, updated = ? WHERE id = ?;", user.mgr.tableUser.Name)
 	args := []interface{}{password, now, user.ID}
-	updateCount, err := sqlplus.RowsAffected(user.mgr.db.Exec(query, args...))
-	if err != nil {
+	if _, err = sqlplus.RowsAffected(user.mgr.db.Exec(query, args...)); err != nil {
 		return err
 	}
-	if updateCount == 0 {
-		return ErrorNotFound
-	}
-
 	return nil
 }
 
@@ -423,12 +391,8 @@ func (user *User) UpdatePasswordWithPassword(oldRawPassword, newRawPassword stri
 	now := time.Now()
 	query := fmt.Sprintf("UPDATE %v Set password = ?, updated = ? WHERE id = ? AND password = ?;", user.mgr.tableUser.Name)
 	args := []interface{}{newPassword, now, user.ID, oldPassword}
-	updateCount, err := sqlplus.RowsAffected(user.mgr.db.Exec(query, args...))
-	if err != nil {
+	if _, err := sqlplus.RowsAffected(user.mgr.db.Exec(query, args...)); err != nil {
 		return err
-	}
-	if updateCount == 0 {
-		return ErrorNotFound
 	}
 	return nil
 }
@@ -516,12 +480,8 @@ func (user *User) UpdateAccessKeyComment(accessKeyID int, comment string) error 
 	query := fmt.Sprintf("UPDATE %v Set comment = ?, updated = ? WHERE id = ?;",
 		user.mgr.tableUserAccessKey.Name)
 	args := []interface{}{comment, now, accessKeyID}
-	updateCount, err := sqlplus.RowsAffected(user.mgr.db.Exec(query, args...))
-	if err != nil {
+	if _, err := sqlplus.RowsAffected(user.mgr.db.Exec(query, args...)); err != nil {
 		return err
-	}
-	if updateCount == 0 {
-		return ErrorNotFound
 	}
 	return nil
 }
@@ -552,16 +512,12 @@ func (user *User) UpdateAccessKeyExpireAt(accessKeyID int, expireAt *time.Time) 
 func (user *User) DeleteAccessKey(accessKeyID int) error {
 	query := fmt.Sprintf("DELETE FROM %v WHERE id = ?;", user.mgr.tableUserAccessKey.Name)
 	args := []interface{}{accessKeyID}
-	updateCount, err := sqlplus.RowsAffected(user.mgr.db.Exec(query, args...))
-	if err != nil {
+	if _, err := sqlplus.RowsAffected(user.mgr.db.Exec(query, args...)); err != nil {
 		return err
-	}
-	if updateCount == 0 {
-		return ErrorNotFound
 	}
 
 	// 从缓存里删除
-	if err = user.mgr.accessKeyCacher.Del(user.UID, accessKeyID); err != nil {
+	if err := user.mgr.accessKeyCacher.Del(user.UID, accessKeyID); err != nil {
 		return err
 	}
 	return nil
