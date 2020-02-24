@@ -10,10 +10,14 @@ import (
 	redigo "github.com/gomodule/redigo/redis"
 )
 
+const (
+	testAuthName = "testAuth"
+)
+
 type testAuth struct{}
 
 func (auth *testAuth) GetName() string {
-	return "testAuth"
+	return testAuthName
 }
 func (auth *testAuth) Verify(v interface{}) (uid, extra string, err error) {
 	uid = v.(string) + "_testAuth"
@@ -129,6 +133,25 @@ func main() {
 	user, _, _, err = usermgr.LoginTourist()
 	if err != nil {
 		panic(err)
+	}
+
+	// 绑定第三方
+	if err = user.BindAuth(testAuthName, user.UID); err != nil {
+		panic(err)
+	}
+
+	// 第三方登录
+	authcode := "testabc"
+	if _, _, _, err = usermgr.LoginAuth(testAuthName, authcode); err != nil {
+		panic(err)
+	}
+
+	ok, _, err = usermgr.FindUserByAuth(testAuthName, authcode+"_testAuth")
+	if err != nil {
+		panic(err)
+	}
+	if !ok {
+		panic("auth user not found")
 	}
 
 	// lapd注册
