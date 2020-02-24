@@ -46,7 +46,7 @@ const (
 		id int(10) unsigned NOT NULL AUTO_INCREMENT COMMENT '自增长ID',
 		access_key char(22) NOT NULL COMMENT '访问密钥',
 		uid char(22) NOT NULL COMMENT '用户ID',
-		expire_at timestamp DEFAULT NULL COMMENT '到期时间',
+		expire_at datetime DEFAULT NULL COMMENT '到期时间',
 		comment varchar(200) NOT NULL COMMENT '密钥注释',
 		created timestamp NOT NULL COMMENT '创建时间',
 		updated timestamp NOT NULL COMMENT '更新时间',

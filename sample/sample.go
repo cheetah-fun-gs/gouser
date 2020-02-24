@@ -1,14 +1,26 @@
 package main
 
 import (
+	"crypto/md5"
 	"database/sql"
+	"encoding/hex"
 	"fmt"
+	"strconv"
 	"time"
 
 	"github.com/cheetah-fun-gs/gouser"
+	"github.com/cheetah-fun-gs/gouser/usermgr"
 	_ "github.com/go-sql-driver/mysql"
 	redigo "github.com/gomodule/redigo/redis"
 )
+
+func defaultGenerateSign(accessKey string, data interface{}) string {
+	ts := data.(int64)
+	h := md5.New()
+	h.Write([]byte(accessKey))
+	h.Write([]byte(strconv.Itoa(int(ts))))
+	return hex.EncodeToString(h.Sum(nil))
+}
 
 const (
 	testAuthName = "testAuth"
@@ -42,7 +54,7 @@ func main() {
 
 	name := "demo"
 	secret := "tZli3W^4Rb#V"
-	usermgr := gouser.New(name, secret, pool, db)
+	usermgr := gouser.New(name, secret, pool, db, usermgr.Config{IsEnableAccessKey: true})
 	// 设置认证
 	usermgr.SetAuthMgr(&testAuth{})
 
@@ -133,6 +145,22 @@ func main() {
 	user, _, _, err = usermgr.LoginTourist()
 	if err != nil {
 		panic(err)
+	}
+
+	// accesskey
+	accessKey, err := user.GenerateAccessKey("test")
+	if err != nil {
+		panic(err)
+	}
+
+	ts := time.Now().Unix()
+	sign := defaultGenerateSign(accessKey.AccessKey, ts)
+	ok, err = usermgr.VerifySign(user.UID, accessKey.ID, ts, sign)
+	if err != nil {
+		panic(err)
+	}
+	if !ok {
+		panic("access key Verify error")
 	}
 
 	// 绑定第三方
