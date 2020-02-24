@@ -10,6 +10,16 @@ import (
 	redigo "github.com/gomodule/redigo/redis"
 )
 
+type testAuth struct{}
+
+func (auth *testAuth) GetName() string {
+	return "testAuth"
+}
+func (auth *testAuth) Verify(v interface{}) (uid, extra string, err error) {
+	uid = v.(string) + "_testAuth"
+	return
+}
+
 func dial() (redigo.Conn, error) {
 	return redigo.DialTimeout("tcp", "127.0.0.1:6379", 2*time.Second, 2*time.Second, 2*time.Second)
 }
@@ -29,6 +39,9 @@ func main() {
 	name := "demo"
 	secret := "tZli3W^4Rb#V"
 	usermgr := gouser.New(name, secret, pool, db)
+	// 设置认证
+	usermgr.SetAuthMgr(&testAuth{})
+
 	if err := usermgr.EnsureTables(); err != nil {
 		panic(err)
 	}
@@ -44,32 +57,76 @@ func main() {
 	redisConn.Close()
 
 	// 游客注册
-	user1, err := usermgr.RegisterTourist()
+	user, err := usermgr.RegisterTourist()
 	if err != nil {
 		panic(err)
 	}
 
-	token1, _, err := user1.Login()
+	token, _, err := user.Login()
 	if err != nil {
 		panic(err)
-	}
-	ok1, err := usermgr.VerifyToken(user1.UID, token1)
-	if err != nil {
-		panic(err)
-	}
-	if !ok1 {
-		panic("token1 Verify fail")
 	}
 
-	ok1, _, err = usermgr.FindUserByUID(user1.UID)
+	ok, err := usermgr.VerifyToken(user.UID, token)
 	if err != nil {
 		panic(err)
 	}
-	if !ok1 {
-		panic("uid not found")
+	if !ok {
+		panic("token Verify fail")
 	}
+
+	// 修改uid
+	testuid := "test_uid"
+	if err = user.UpdateUID(testuid); err != nil {
+		panic(err)
+	}
+
+	ok, user, err = usermgr.FindUserByUID(testuid)
+	if err != nil {
+		panic(err)
+	}
+	if !ok {
+		panic("testuid not found")
+	}
+
+	// 修改email
+	time.Sleep(200 * time.Millisecond)
+	testemail := "test123@123.com"
+	emailcode, _, err := user.UpdateEmailApplyCode()
+	if err != nil {
+		panic(err)
+	}
+	if err = user.UpdateEmail(testemail, emailcode); err != nil {
+		panic(err)
+	}
+	ok, _, err = usermgr.FindUserByEmail(testemail)
+	if err != nil {
+		panic(err)
+	}
+	if !ok {
+		panic("testemail not found")
+	}
+
+	// 修改mobile
+	time.Sleep(200 * time.Millisecond)
+	testmobile := "13000000000"
+	mobilecode, _, _, err := user.UpdateMobileApplyCode(testmobile)
+	if err != nil {
+		panic(err)
+	}
+	if err = user.UpdateMobile(testmobile, mobilecode); err != nil {
+		panic(err)
+	}
+	ok, _, err = usermgr.FindUserByMobile(testmobile)
+	if err != nil {
+		panic(err)
+	}
+	if !ok {
+		panic("testemail not found")
+	}
+
 	// 游客登录
-	_, _, _, err = usermgr.LoginTourist()
+	user, _, _, err = usermgr.LoginTourist()
 	if err != nil {
 		panic(err)
 	}
@@ -77,99 +134,113 @@ func main() {
 	// lapd注册
 	lapdUID := "test_lapd"
 	lapdPass := "test_lapd"
-	user2, err := usermgr.RegisterLAPD(lapdUID, lapdPass)
+	user, err = usermgr.RegisterLAPD(lapdUID, lapdPass)
 	if err != nil {
 		panic(err)
 	}
-	token2, _, err := user2.Login()
+	token, _, err = user.Login()
 	if err != nil {
 		panic(err)
 	}
-	ok2, err := usermgr.VerifyToken(user2.UID, token2)
+	ok, err = usermgr.VerifyToken(user.UID, token)
 	if err != nil {
 		panic(err)
 	}
-	if !ok2 {
-		panic("token2 Verify fail")
+	if !ok {
+		panic("token Verify fail")
 	}
 
-	ok2, _, err = usermgr.FindUserByAny(lapdUID)
+	ok, _, err = usermgr.FindUserByAny(lapdUID)
 	if err != nil {
 		panic(err)
 	}
-	if !ok2 {
+	if !ok {
 		panic("lapdUID not found")
+	}
+
+	// 修改密码
+	time.Sleep(200 * time.Millisecond)
+	testpassword := "test_uid123"
+	passwardcode, _, err := user.UpdatePasswordApplyCode()
+	if err != nil {
+		panic(err)
+	}
+	if err = user.UpdatePasswordWithCode(testpassword, passwardcode); err != nil {
+		panic(err)
+	}
+	if _, _, _, err = usermgr.LoginLAPD(testuid, testpassword); err != nil {
+		panic(err)
 	}
 
 	// 邮箱注册
 	email := "test_email@abc.com"
-	emailcode, _, err := usermgr.RegisterEmailApplyCode(email)
+	emailcode, _, err = usermgr.RegisterEmailApplyCode(email)
 	if err != nil {
 		panic(err)
 	}
 
-	user3, err := usermgr.RegisterEmail(email, emailcode)
+	user, err = usermgr.RegisterEmail(email, emailcode)
 	if err != nil {
 		panic(err)
 	}
-	token3, _, err := user3.Login()
+	token, _, err = user.Login()
 	if err != nil {
 		panic(err)
 	}
-	ok3, err := usermgr.VerifyToken(user3.UID, token3)
+	ok, err = usermgr.VerifyToken(user.UID, token)
 	if err != nil {
 		panic(err)
 	}
-	if !ok3 {
-		panic("token3 Verify fail")
+	if !ok {
+		panic("token Verify fail")
 	}
 
-	ok3, _, err = usermgr.FindUserByEmail(email)
+	ok, _, err = usermgr.FindUserByEmail(email)
 	if err != nil {
 		panic(err)
 	}
-	if !ok3 {
+	if !ok {
 		panic("email not found")
 	}
 
 	// 手机注册
-	mobile := "13000000000"
-	mobilecode, _, _, err := usermgr.RegisterMobileApplyCode(mobile)
+	mobile := "13000000001"
+	mobilecode, _, _, err = usermgr.RegisterMobileApplyCode(mobile)
 	if err != nil {
 		panic(err)
 	}
 
-	user4, err := usermgr.RegisterMobile(mobile, mobilecode)
+	user, err = usermgr.RegisterMobile(mobile, mobilecode)
 	if err != nil {
 		panic(err)
 	}
-	token4, _, err := user4.Login()
+	token, _, err = user.Login()
 	if err != nil {
 		panic(err)
 	}
-	ok4, err := usermgr.VerifyToken(user4.UID, token4)
+	ok, err = usermgr.VerifyToken(user.UID, token)
 	if err != nil {
 		panic(err)
 	}
-	if !ok4 {
-		panic("token4 Verify fail")
+	if !ok {
+		panic("token Verify fail")
 	}
 
-	ok4, _, err = usermgr.FindUserByMobile(mobile)
+	ok, _, err = usermgr.FindUserByMobile(mobile)
 	if err != nil {
 		panic(err)
 	}
-	if !ok4 {
+	if !ok {
 		panic("mobile not found")
 	}
 
 	// 手机直接登录
-	mobile = "13000000001"
+	mobile = "13000000002"
 	mobilecode, _, _, err = usermgr.LoginMobileApplyCode(mobile)
 	if err != nil {
 		panic(err)
 	}
-	user4, _, _, err = usermgr.LoginMobile(mobile, mobilecode)
+	user, _, _, err = usermgr.LoginMobile(mobile, mobilecode)
 	if err != nil {
 		panic(err)
 	}
