@@ -48,7 +48,7 @@ func (mgr *UserMgr) LoginLAPDWithFrom(uid, rawPassword, from string) (user *User
 
 // LoginMobileApplyCode 手机验证码登录 申请验证码
 func (mgr *UserMgr) LoginMobileApplyCode(mobile string) (code string, expire, retry int, err error) {
-	return mgr.ApplyCodeAntiReplay(mobile, mobile)
+	return mgr.ApplyCodeAntiReplay(mobile, 0, 0, mobile)
 }
 
 // LoginMobile 手机验证码登录

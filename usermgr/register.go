@@ -47,7 +47,7 @@ func (mgr *UserMgr) RegisterLAPD(uid, rawPassword string) (*User, error) {
 
 // RegisterEmailApplyCode 邮件用户注册申请code
 func (mgr *UserMgr) RegisterEmailApplyCode(email string) (code string, expire int, err error) {
-	return mgr.ApplyCode(email)
+	return mgr.ApplyCode(0, email)
 }
 
 // RegisterEmail 邮件用户注册
@@ -95,7 +95,7 @@ func (mgr *UserMgr) RegisterEmail(email, code string) (*User, error) {
 
 // RegisterMobileApplyCode 手机用户注册申请code
 func (mgr *UserMgr) RegisterMobileApplyCode(mobile string) (code string, expire, retry int, err error) {
-	return mgr.ApplyCodeAntiReplay(mobile, mobile)
+	return mgr.ApplyCodeAntiReplay(mobile, 0, 0, mobile)
 }
 
 // RegisterMobile 手机用户注册

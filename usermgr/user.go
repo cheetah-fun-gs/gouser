@@ -301,7 +301,7 @@ func (user *User) UpdateUID(uid string) error {
 
 // UpdateEmailApplyCode 更新邮箱申请code
 func (user *User) UpdateEmailApplyCode() (code string, expire int, err error) {
-	return user.mgr.ApplyCode(user.UID)
+	return user.mgr.ApplyCode(0, user.UID)
 }
 
 // UpdateEmail 更新邮箱
@@ -331,7 +331,7 @@ func (user *User) UpdateEmail(email, code string) error {
 
 // UpdateMobileApplyCode 更新手机号申请code
 func (user *User) UpdateMobileApplyCode(mobile string) (code string, expire, retry int, err error) {
-	return user.mgr.ApplyCodeAntiReplay(mobile, user.UID)
+	return user.mgr.ApplyCodeAntiReplay(mobile, 0, 0, user.UID)
 }
 
 // UpdateMobile 更新手机号
@@ -361,7 +361,7 @@ func (user *User) UpdateMobile(mobile, code string) error {
 
 // UpdatePasswordApplyCode 更改密码申请code
 func (user *User) UpdatePasswordApplyCode() (code string, expire int, err error) {
-	return user.mgr.ApplyCode(user.UID)
+	return user.mgr.ApplyCode(0, user.UID)
 }
 
 // UpdatePasswordWithCode 通过验证码更改密码

@@ -22,8 +22,10 @@ func getCodeLockKey(name, lockname string) string {
 }
 
 // ApplyCode 申请一个验证码, args用来区分场景
-func (mgr *UserMgr) ApplyCode(args ...interface{}) (code string, expire int, err error) {
-	expire = mgr.config.CodeExpire
+func (mgr *UserMgr) ApplyCode(expire int, args ...interface{}) (code string, expire0 int, err error) {
+	if expire == 0 {
+		expire = mgr.config.CodeExpire
+	}
 
 	conn := mgr.pool.Get()
 	defer conn.Close()
@@ -41,13 +43,19 @@ func (mgr *UserMgr) ApplyCode(args ...interface{}) (code string, expire int, err
 		err = fmt.Errorf("code duplicate")
 		return
 	}
+
+	expire0 = expire
 	return
 }
 
 // ApplyCodeAntiReplay 申请一个防重放验证码, args用来区分场景
-func (mgr *UserMgr) ApplyCodeAntiReplay(lockname string, args ...interface{}) (code string, expire, retry int, err error) {
-	expire = mgr.config.CodeExpire
-	retry = mgr.config.CodeRetry
+func (mgr *UserMgr) ApplyCodeAntiReplay(lockname string, expire, retry int, args ...interface{}) (code string, expire0, retry0 int, err error) {
+	if expire == 0 {
+		expire = mgr.config.CodeExpire
+	}
+	if retry == 0 {
+		retry = mgr.config.CodeRetry
+	}
 
 	conn := mgr.pool.Get()
 	defer conn.Close()
@@ -72,6 +80,9 @@ func (mgr *UserMgr) ApplyCodeAntiReplay(lockname string, args ...interface{}) (c
 		err = fmt.Errorf("code duplicate")
 		return
 	}
+
+	expire0 = expire
+	retry0 = retry
 	return
 }
 
