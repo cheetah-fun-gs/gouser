@@ -29,7 +29,7 @@ func (mgr *UserMgr) ApplyCode(args ...interface{}) (code string, expire int, err
 	defer conn.Close()
 
 	code = mgr.generateCode()
-	codeKey := getCodeKey(mgr.name, code)
+	codeKey := getCodeKey(mgr.name, code, args...)
 
 	var result string
 	result, err = redigo.String(conn.Do("SET", codeKey, "1", "EX", expire, "NX"))
@@ -60,7 +60,7 @@ func (mgr *UserMgr) ApplyCodeAntiReplay(lockname string, args ...interface{}) (c
 	}
 
 	code = mgr.generateCode()
-	codeKey := getCodeKey(mgr.name, code)
+	codeKey := getCodeKey(mgr.name, code, args...)
 
 	var result string
 	result, err = redigo.String(conn.Do("SET", codeKey, "1", "EX", expire, "NX"))
