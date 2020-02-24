@@ -22,6 +22,16 @@ github.com/cheetah-fun-gs/goplus v1.1.3 h1:sYBCaeKcgcY8Jxf5gxAGtu3BfkHSneuHhl2v7
 github.com/cheetah-fun-gs/goplus v1.1.3/go.mod h1:MNEHS4XGeCFcsZdI+fdM2HR8wuubU1AP/dqsAXzAmb8=
 github.com/cheetah-fun-gs/goplus v1.1.4 h1:C2uQSn9nCPTdDusjir63zmoOb4VI1jdvF1uKLcuwteg=
 github.com/cheetah-fun-gs/goplus v1.1.4/go.mod h1:MNEHS4XGeCFcsZdI+fdM2HR8wuubU1AP/dqsAXzAmb8=
+github.com/cheetah-fun-gs/goplus v1.1.5 h1:k1uLAb1mW4rNwK3h93Nx8sLtWEsl5SvuNKLuTfcrrjQ=
+github.com/cheetah-fun-gs/goplus v1.1.5/go.mod h1:Vnl1ABnAVczEkNoyvV6rphfr7OpM7zPMvBxbjqH0LK8=
+github.com/cheetah-fun-gs/goplus v1.1.6 h1:JoDASlbO0M6sTEwQ0YrHBxBHNxERgNH7SsgZvoJHj4o=
+github.com/cheetah-fun-gs/goplus v1.1.6/go.mod h1:Vnl1ABnAVczEkNoyvV6rphfr7OpM7zPMvBxbjqH0LK8=
+github.com/cheetah-fun-gs/goplus v1.1.7 h1:sNZaGdvM1aa3crNMhZBmf0eE6mFYmH7H5rdA/6oeo74=
+github.com/cheetah-fun-gs/goplus v1.1.7/go.mod h1:Vnl1ABnAVczEkNoyvV6rphfr7OpM7zPMvBxbjqH0LK8=
+github.com/cheetah-fun-gs/goplus v1.1.8 h1:wvK3dIzVL45N94Ui5KG6VxDEYxmMECxAaXnooCDq9u0=
+github.com/cheetah-fun-gs/goplus v1.1.8/go.mod h1:Vnl1ABnAVczEkNoyvV6rphfr7OpM7zPMvBxbjqH0LK8=
+github.com/cheetah-fun-gs/goplus v1.1.9 h1:ur0QmhyGgGzvyRUup7HTENif5DlOYIGInrgp7/eAupY=
+github.com/cheetah-fun-gs/goplus v1.1.9/go.mod h1:Vnl1ABnAVczEkNoyvV6rphfr7OpM7zPMvBxbjqH0LK8=
 github.com/client9/misspell v0.3.4/go.mod h1:qj6jICC3Q7zFZvVWo7KLAzC3yx5G7kyvSDkc90ppPyw=
 github.com/coreos/bbolt v1.3.2/go.mod h1:iRUV2dpdMOn7Bo10OQBFzIJO9kkE559Wcmn+qkEiiKk=
 github.com/coreos/etcd v3.3.10+incompatible/go.mod h1:uF7uidLiAD3TWHmW31ZFd/JWoc32PjwdhPthX9715RE=
@@ -39,6 +49,7 @@ github.com/globalsign/mgo v0.0.0-20181015135952-eeefdecb41b8/go.mod h1:xkRDCp4j0
 github.com/go-kit/kit v0.8.0/go.mod h1:xBxKIO96dXMWWy0MnWVtmwkA9/13aqxPnvrjFYMA2as=
 github.com/go-logfmt/logfmt v0.3.0/go.mod h1:Qt1PoO58o5twSAckw1HlFXLmHsOX5/0LbT9GBnD5lWE=
 github.com/go-logfmt/logfmt v0.4.0/go.mod h1:3RMwSq7FuexP4Kalkev3ejPJsZTpXXBr9+V4qmtdjCk=
+github.com/go-sql-driver/mysql v1.5.0 h1:ozyZYNQW3x3HtqT1jira07DN2PArx2v7/mN66gGcHOs=
 github.com/go-sql-driver/mysql v1.5.0/go.mod h1:DCzpHaOWr8IXmIStZouvnhqoel9Qv2LBy8hT2VhHyBg=
 github.com/go-stack/stack v1.8.0/go.mod h1:v0f6uXyyMGvRgIKkXu+yp6POWl0qKG85gN/melR3HDY=
 github.com/gogo/protobuf v1.1.1/go.mod h1:r8qH/GZQm5c6nD/R0oafs1akxWv10x8SbQlK7atdtwQ=
