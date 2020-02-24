@@ -24,6 +24,7 @@ func (akc *accessKeyCacher) Get(dest interface{}, args ...interface{}) (bool, er
 	if err != nil {
 		return false, err
 	}
+	defer rows.Close()
 
 	result := &ModelUserAccessKey{}
 	if err = sqlplus.Get(rows, result); err != nil {

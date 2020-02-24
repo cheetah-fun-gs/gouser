@@ -206,6 +206,7 @@ func (user *User) GetAuths() ([]*UserAuth, error) {
 	if err != nil {
 		return nil, err
 	}
+	defer rows.Close()
 
 	result := []*ModelUserAuth{}
 	if err = sqlplus.Select(rows, &result); err != nil {
@@ -410,6 +411,7 @@ func (user *User) GetAccessKeys(isAll bool) ([]*UserAccessKey, error) {
 	if err != nil {
 		return nil, err
 	}
+	defer rows.Close()
 
 	result := []*ModelUserAccessKey{}
 	if err = sqlplus.Select(rows, &result); err != nil {

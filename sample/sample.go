@@ -39,13 +39,16 @@ func main() {
 		}
 	}
 
+	redisConn := pool.Get()
+	redisConn.Do("flushdb")
+	redisConn.Close()
+
 	// 游客注册
 	user1, err := usermgr.RegisterTourist()
 	if err != nil {
 		panic(err)
 	}
 
-	fmt.Printf("%+v\n", user1.UserData)
 	token1, _, err := user1.Login()
 	if err != nil {
 		panic(err)
@@ -161,6 +164,7 @@ func main() {
 	}
 
 	// 手机直接登录
+	mobile = "13000000001"
 	mobilecode, _, _, err = usermgr.LoginMobileApplyCode(mobile)
 	if err != nil {
 		panic(err)

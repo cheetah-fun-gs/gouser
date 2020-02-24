@@ -41,6 +41,7 @@ func findUserData(db *sql.DB, userData *UserData, query string, args ...interfac
 	if err != nil {
 		return false, err
 	}
+	defer rows.Close()
 
 	result := &ModelUser{}
 	if err = sqlplus.Get(rows, result); err == sql.ErrNoRows {
@@ -123,6 +124,7 @@ func (mgr *UserMgr) FindUserByAuth(authName, authUID string) (bool, *User, error
 	if err != nil {
 		return false, nil, err
 	}
+	defer rows.Close()
 
 	result := &ModelUserAuth{}
 	if err = sqlplus.Get(rows, result); err == sql.ErrNoRows {
