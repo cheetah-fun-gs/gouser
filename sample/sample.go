@@ -54,15 +54,15 @@ func main() {
 
 	name := "demo"
 	secret := "tZli3W^4Rb#V"
-	usermgr := gouser.New(name, secret, pool, db, usermgr.Config{IsEnableAccessKey: true})
+	mgr := gouser.New(name, secret, pool, db, usermgr.Config{IsEnableAccessKey: true})
 	// 设置认证
-	usermgr.SetAuthMgr(&testAuth{})
+	mgr.SetAuthMgr(&testAuth{})
 
-	if err := usermgr.EnsureTables(); err != nil {
+	if err := mgr.EnsureTables(); err != nil {
 		panic(err)
 	}
 
-	for _, tableName := range usermgr.TableNames() {
+	for _, tableName := range mgr.TableNames() {
 		if _, err = db.Exec(fmt.Sprintf("truncate table %s;", tableName)); err != nil {
 			panic(err)
 		}
@@ -73,7 +73,7 @@ func main() {
 	redisConn.Close()
 
 	// 游客注册
-	user, err := usermgr.RegisterTourist()
+	user, err := mgr.RegisterTourist()
 	if err != nil {
 		panic(err)
 	}
@@ -83,7 +83,7 @@ func main() {
 		panic(err)
 	}
 
-	ok, err := usermgr.VerifyToken(user.UID, token)
+	ok, err := mgr.VerifyToken(user.UID, token)
 	if err != nil {
 		panic(err)
 	}
@@ -97,7 +97,7 @@ func main() {
 		panic(err)
 	}
 
-	ok, user, err = usermgr.FindUserByUID(testuid)
+	ok, user, err = mgr.FindUserByUID(testuid)
 	if err != nil {
 		panic(err)
 	}
@@ -115,7 +115,7 @@ func main() {
 	if err = user.UpdateEmail(testemail, emailcode); err != nil {
 		panic(err)
 	}
-	ok, _, err = usermgr.FindUserByEmail(testemail)
+	ok, _, err = mgr.FindUserByEmail(testemail)
 	if err != nil {
 		panic(err)
 	}
@@ -133,7 +133,7 @@ func main() {
 	if err = user.UpdateMobile(testmobile, mobilecode); err != nil {
 		panic(err)
 	}
-	ok, _, err = usermgr.FindUserByMobile(testmobile)
+	ok, _, err = mgr.FindUserByMobile(testmobile)
 	if err != nil {
 		panic(err)
 	}
@@ -142,7 +142,7 @@ func main() {
 	}
 
 	// 游客登录
-	user, _, _, err = usermgr.LoginTourist()
+	user, _, _, err = mgr.LoginTourist()
 	if err != nil {
 		panic(err)
 	}
@@ -155,7 +155,7 @@ func main() {
 
 	ts := time.Now().Unix()
 	sign := defaultGenerateSign(accessKey.AccessKey, ts)
-	ok, err = usermgr.VerifySign(user.UID, accessKey.ID, ts, sign)
+	ok, err = mgr.VerifySign(user.UID, accessKey.ID, ts, sign)
 	if err != nil {
 		panic(err)
 	}
@@ -170,11 +170,11 @@ func main() {
 
 	// 第三方登录
 	authcode := "testabc"
-	if _, _, _, err = usermgr.LoginAuth(testAuthName, authcode); err != nil {
+	if _, _, _, err = mgr.LoginAuth(testAuthName, authcode); err != nil {
 		panic(err)
 	}
 
-	ok, _, err = usermgr.FindUserByAuth(testAuthName, authcode+"_testAuth")
+	ok, _, err = mgr.FindUserByAuth(testAuthName, authcode+"_testAuth")
 	if err != nil {
 		panic(err)
 	}
@@ -185,7 +185,7 @@ func main() {
 	// lapd注册
 	lapdUID := "test_lapd"
 	lapdPass := "test_lapd"
-	user, err = usermgr.RegisterLAPD(lapdUID, lapdPass)
+	user, err = mgr.RegisterLAPD(lapdUID, lapdPass)
 	if err != nil {
 		panic(err)
 	}
@@ -193,7 +193,7 @@ func main() {
 	if err != nil {
 		panic(err)
 	}
-	ok, err = usermgr.VerifyToken(user.UID, token)
+	ok, err = mgr.VerifyToken(user.UID, token)
 	if err != nil {
 		panic(err)
 	}
@@ -201,7 +201,7 @@ func main() {
 		panic("token Verify fail")
 	}
 
-	ok, _, err = usermgr.FindUserByAny(lapdUID)
+	ok, _, err = mgr.FindUserByAny(lapdUID)
 	if err != nil {
 		panic(err)
 	}
@@ -219,18 +219,18 @@ func main() {
 	if err = user.UpdatePasswordWithCode(testpassword, passwardcode); err != nil {
 		panic(err)
 	}
-	if _, _, _, err = usermgr.LoginLAPD(testuid, testpassword); err != nil {
+	if _, _, _, err = mgr.LoginLAPD(testuid, testpassword); err != nil {
 		panic(err)
 	}
 
 	// 邮箱注册
 	email := "test_email@abc.com"
-	emailcode, _, err = usermgr.RegisterEmailApplyCode(email)
+	emailcode, _, err = mgr.RegisterEmailApplyCode(email)
 	if err != nil {
 		panic(err)
 	}
 
-	user, err = usermgr.RegisterEmail(email, emailcode)
+	user, err = mgr.RegisterEmail(email, emailcode)
 	if err != nil {
 		panic(err)
 	}
@@ -238,7 +238,7 @@ func main() {
 	if err != nil {
 		panic(err)
 	}
-	ok, err = usermgr.VerifyToken(user.UID, token)
+	ok, err = mgr.VerifyToken(user.UID, token)
 	if err != nil {
 		panic(err)
 	}
@@ -246,7 +246,7 @@ func main() {
 		panic("token Verify fail")
 	}
 
-	ok, _, err = usermgr.FindUserByEmail(email)
+	ok, _, err = mgr.FindUserByEmail(email)
 	if err != nil {
 		panic(err)
 	}
@@ -256,12 +256,12 @@ func main() {
 
 	// 手机注册
 	mobile := "13000000001"
-	mobilecode, _, _, err = usermgr.RegisterMobileApplyCode(mobile)
+	mobilecode, _, _, err = mgr.RegisterMobileApplyCode(mobile)
 	if err != nil {
 		panic(err)
 	}
 
-	user, err = usermgr.RegisterMobile(mobile, mobilecode)
+	user, err = mgr.RegisterMobile(mobile, mobilecode)
 	if err != nil {
 		panic(err)
 	}
@@ -269,7 +269,7 @@ func main() {
 	if err != nil {
 		panic(err)
 	}
-	ok, err = usermgr.VerifyToken(user.UID, token)
+	ok, err = mgr.VerifyToken(user.UID, token)
 	if err != nil {
 		panic(err)
 	}
@@ -277,7 +277,7 @@ func main() {
 		panic("token Verify fail")
 	}
 
-	ok, _, err = usermgr.FindUserByMobile(mobile)
+	ok, _, err = mgr.FindUserByMobile(mobile)
 	if err != nil {
 		panic(err)
 	}
@@ -287,11 +287,11 @@ func main() {
 
 	// 手机直接登录
 	mobile = "13000000002"
-	mobilecode, _, _, err = usermgr.LoginMobileApplyCode(mobile)
+	mobilecode, _, _, err = mgr.LoginMobileApplyCode(mobile)
 	if err != nil {
 		panic(err)
 	}
-	user, _, _, err = usermgr.LoginMobile(mobile, mobilecode)
+	user, _, _, err = mgr.LoginMobile(mobile, mobilecode)
 	if err != nil {
 		panic(err)
 	}
