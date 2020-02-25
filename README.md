@@ -22,7 +22,7 @@ go get github.com/cheetah-fun-gs/gouser
 ```golang
 import (
     "github.com/cheetah-fun-gs/gouser"
-	"github.com/cheetah-fun-gs/gouser/usermgr"
+    "github.com/cheetah-fun-gs/gouser/usermgr"
 )
 
 gouser.New(name, secret, pool, db)
@@ -38,7 +38,7 @@ func (mgr *UserMgr) RegisterEmail(email, code string) (*User, error)
     RegisterEmail 邮件用户注册
 
 func (mgr *UserMgr) RegisterEmailApplyCode(email string) (code string, expire int, err error)
-    RegisterEmailApplyCode 邮件用户注册申请code
+    RegisterEmailApplyCode 邮件用户注册申请验证码
 
 func (mgr *UserMgr) RegisterLAPD(uid, rawPassword string) (*User, error)
     RegisterLAPD 密码用户注册
@@ -47,11 +47,10 @@ func (mgr *UserMgr) RegisterMobile(mobile, code string) (*User, error)
     RegisterMobile 手机用户注册
 
 func (mgr *UserMgr) RegisterMobileApplyCode(mobile string) (code string, expire, retry int, err error)
-    RegisterMobileApplyCode 手机用户注册申请code
+    RegisterMobileApplyCode 手机用户注册申请验证码
 
 func (mgr *UserMgr) RegisterTourist() (*User, error)
     RegisterTourist 游客注册
-
 ```
 
 ### 快速登录（不存在自动注册）
