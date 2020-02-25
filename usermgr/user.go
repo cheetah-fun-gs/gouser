@@ -52,7 +52,7 @@ func (user *User) Login() (token string, deadline int64, err error) {
 	return user.LoginWithFrom(fromDefault)
 }
 
-// LoginWithFrom 登录
+// LoginWithFrom 登录 带来源
 func (user *User) LoginWithFrom(from string) (token string, deadline int64, err error) {
 	token, deadline, err = user.mgr.tokenmgr.Generate(user.UID, from)
 	if err != nil {
@@ -80,12 +80,12 @@ func (user *User) Logout() error {
 	return user.LogoutWithFrom(fromDefault)
 }
 
-// LogoutWithFrom 登出
+// LogoutWithFrom 登出 带来源
 func (user *User) LogoutWithFrom(from string) error {
 	return user.mgr.tokenmgr.Clean(user.UID, from)
 }
 
-// Clean 清除账号
+// Clean 清除用户
 func (user *User) Clean() error {
 	var err error
 
@@ -197,7 +197,7 @@ func (user *User) UnbindAuth(authName string) error {
 	return nil
 }
 
-// GetAuths 获得第三方信息
+// GetAuths 获得第三方认证信息
 func (user *User) GetAuths() ([]*UserAuth, error) {
 	query := fmt.Sprintf("SELECT * FROM %v WHERE uid = ?;", user.mgr.tableUserAuth.Name)
 	args := []interface{}{user.UID}
@@ -271,7 +271,7 @@ func (user *User) UpdateInfo(nickname, avatar, extra *string) error {
 	return nil
 }
 
-// UpdateAuthInfo 更新第三方信息
+// UpdateAuthInfo 更新第三方认证信息
 func (user *User) UpdateAuthInfo(authName, authExtra string) error {
 	now := time.Now()
 	query := fmt.Sprintf("UPDATE %v Set auth_extra = ?, updated = ? WHERE uid = ? AND auth_name = ?;",
@@ -300,7 +300,7 @@ func (user *User) UpdateUID(uid string) error {
 	return nil
 }
 
-// UpdateEmailApplyCode 更新邮箱申请code
+// UpdateEmailApplyCode 更新邮箱申请验证码
 func (user *User) UpdateEmailApplyCode() (code string, expire int, err error) {
 	return user.mgr.ApplyCode(0, user.UID)
 }
@@ -330,7 +330,7 @@ func (user *User) UpdateEmail(email, code string) error {
 	return nil
 }
 
-// UpdateMobileApplyCode 更新手机号申请code
+// UpdateMobileApplyCode 更新手机号申请验证码
 func (user *User) UpdateMobileApplyCode(mobile string) (code string, expire, retry int, err error) {
 	return user.mgr.ApplyCodeAntiReplay(mobile, 0, 0, user.UID)
 }
@@ -360,7 +360,7 @@ func (user *User) UpdateMobile(mobile, code string) error {
 	return nil
 }
 
-// UpdatePasswordApplyCode 更改密码申请code
+// UpdatePasswordApplyCode 更改密码申请验证码
 func (user *User) UpdatePasswordApplyCode() (code string, expire int, err error) {
 	return user.mgr.ApplyCode(0, user.UID)
 }
@@ -510,7 +510,7 @@ func (user *User) UpdateAccessKeyExpireAt(accessKeyID int, expireAt *time.Time) 
 	return nil
 }
 
-// DeleteAccessKey 更新一个 access key
+// DeleteAccessKey 删除一个 access key
 func (user *User) DeleteAccessKey(accessKeyID int) error {
 	query := fmt.Sprintf("DELETE FROM %v WHERE id = ?;", user.mgr.tableUserAccessKey.Name)
 	args := []interface{}{accessKeyID}

@@ -154,27 +154,27 @@ func (mgr *UserMgr) SetTokenMgr(arg tokenmgr.TokenMgr) {
 	mgr.tokenmgr = arg
 }
 
-// SetGenerateUID ...
+// SetGenerateUID 设置生成用户信息的方法 如果uid格式改变，可能需要修改sql表结构
 func (mgr *UserMgr) SetGenerateUID(arg func() (uid, nickname, avatar, extra string)) {
 	mgr.generateUID = arg
 }
 
-// SetGenerateCode ...
+// SetGenerateCode 设置生成验证码的方法
 func (mgr *UserMgr) SetGenerateCode(arg func() string) {
 	mgr.generateCode = arg
 }
 
-// SetGenerateAccessKey ...
+// SetGenerateAccessKey 设置生成accesskey的方法
 func (mgr *UserMgr) SetGenerateAccessKey(arg func() string) {
 	mgr.generateAccessKey = arg
 }
 
-// SetGenerateSign ...
+// SetGenerateSign 设置根据accesskey计算sign的方法
 func (mgr *UserMgr) SetGenerateSign(arg func(accessKey string, data interface{}) string) {
 	mgr.generateSign = arg
 }
 
-// SetTableUser ...
+// SetTableUser 设置用户表表名和表结构
 func (mgr *UserMgr) SetTableUser(tableName, tableCreateSQL string) error {
 	mgr.tableUser = &modelTable{
 		Name:      tableName,
@@ -183,7 +183,7 @@ func (mgr *UserMgr) SetTableUser(tableName, tableCreateSQL string) error {
 	return nil
 }
 
-// SetTableAuth ...
+// SetTableAuth 设置第三方验证表表名和表结构
 func (mgr *UserMgr) SetTableAuth(tableName, tableCreateSQL string) error {
 	mgr.tableUserAuth = &modelTable{
 		Name:      tableName,
@@ -192,7 +192,7 @@ func (mgr *UserMgr) SetTableAuth(tableName, tableCreateSQL string) error {
 	return nil
 }
 
-// SetTableAccessKey ...
+// SetTableAccessKey 设置accessKey表表名和表结构
 func (mgr *UserMgr) SetTableAccessKey(tableName, tableCreateSQL string) error {
 	mgr.tableUserAccessKey = &modelTable{
 		Name:      tableName,
@@ -219,7 +219,7 @@ func (mgr *UserMgr) EnsureTables() error {
 	return nil
 }
 
-// TablesCreateSQL 建表语句
+// TablesCreateSQL 获得建表语句
 func (mgr *UserMgr) TablesCreateSQL() []string {
 	result := []string{mgr.tableUser.CreateSQL}
 	if len(mgr.authMgrs) > 0 {
@@ -231,7 +231,7 @@ func (mgr *UserMgr) TablesCreateSQL() []string {
 	return result
 }
 
-// TableNames 表名
+// TableNames 获得表名
 func (mgr *UserMgr) TableNames() []string {
 	result := []string{mgr.tableUser.Name}
 	if len(mgr.authMgrs) > 0 {
@@ -252,7 +252,7 @@ func (mgr *UserMgr) VerifyToken(uid, token string) (ok bool, err error) {
 	return mgr.VerifyTokenWithFrom(uid, fromDefault, token)
 }
 
-// VerifyTokenWithFrom 验证token
+// VerifyTokenWithFrom 验证token 带来源
 func (mgr *UserMgr) VerifyTokenWithFrom(uid, from, token string) (ok bool, err error) {
 	return mgr.tokenmgr.Verify(uid, from, token)
 }

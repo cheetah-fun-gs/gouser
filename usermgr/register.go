@@ -178,7 +178,7 @@ func (mgr *UserMgr) RegisterTourist() (*User, error) {
 	}, nil
 }
 
-// RegisterAuth 第三方注册
+// RegisterAuth 第三方认证注册
 func (mgr *UserMgr) RegisterAuth(authName string, v interface{}) (*User, error) {
 	authUID, authExtra, err := mgr.VerifyAuth(authName, v)
 	if err != nil {

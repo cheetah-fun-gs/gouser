@@ -25,99 +25,240 @@ import (
 	"github.com/cheetah-fun-gs/gouser/usermgr"
 )
 
-func main() {
-    mgr := gouser.New(name, secret, pool, db)
-    mgr := gouser.New(name, secret, pool, db, usermgr.Config{})
-    // 设定支持的第三方验证方式
-    mgr.SetAuthMgr(...)
-}
+gouser.New(name, secret, pool, db)
+gouser.New(name, secret, pool, db, usermgr.Config{})
 ```
 
-### 注册
+### 注册用户
 ```golang
-// 用户名+密码注册
-mgr.RegisterLAPD(uid, rawPassword string) (*User, error)
-// 邮件+验证码注册
-mgr.RegisterEmailApplyCode(email string) (code string, expire int, err error) // 生成验证码 需要自己发邮件
-mgr.RegisterEmail(email, code string) (*User, error) // 注册用户
-// 手机+验证码注册
-mgr.RegisterMobileApplyCode(mobile string) (code string, expire, retry int, err error) // 生成验证码 需要自己发短信
-mgr.RegisterMobile(mobile, code string) (*User, error) // 注册用户
-// 游客注册
-mgr.RegisterTourist() (*User, error)
-// 第三方注册
-mgr.RegisterAuth(authName string, v interface{}) (*User, error)
+func (mgr *UserMgr) RegisterAuth(authName string, v interface{}) (*User, error)
+    RegisterAuth 第三方认证注册
+
+func (mgr *UserMgr) RegisterEmail(email, code string) (*User, error)
+    RegisterEmail 邮件用户注册
+
+func (mgr *UserMgr) RegisterEmailApplyCode(email string) (code string, expire int, err error)
+    RegisterEmailApplyCode 邮件用户注册申请code
+
+func (mgr *UserMgr) RegisterLAPD(uid, rawPassword string) (*User, error)
+    RegisterLAPD 密码用户注册
+
+func (mgr *UserMgr) RegisterMobile(mobile, code string) (*User, error)
+    RegisterMobile 手机用户注册
+
+func (mgr *UserMgr) RegisterMobileApplyCode(mobile string) (code string, expire, retry int, err error)
+    RegisterMobileApplyCode 手机用户注册申请code
+
+func (mgr *UserMgr) RegisterTourist() (*User, error)
+    RegisterTourist 游客注册
+
 ```
 
-### 登录（不存在则自动注册）
+### 快速登录（不存在自动注册）
 ```golang
-// 游客登录
-mgr.LoginTourist() (user *User, token string, deadline int64, err error) 
-mgr.LoginTouristWithFrom(from string) (user *User, token string, deadline int64, err error) // 带来源
+func (mgr *UserMgr) LoginAuth(authName string, v interface{}) (user *User, token string, deadline int64, err error)
+    LoginAuth 第三方登录
 
-// 密码登录
-mgr.LoginLAPD(uid, rawPassword string) (user *User, token string, deadline int64, err error)
-mgr.LoginLAPDWithFrom(uid, rawPassword, from string) (user *User, token string, deadline int64, err error) // 带来源
+func (mgr *UserMgr) LoginAuthWithFrom(authName string, v interface{}, from string) (user *User, token string, deadline int64, err error)
+    LoginAuthWithFrom 第三方登录 带来源
 
-// 手机验证码登录
-mgr.LoginMobileApplyCode(mobile string) (code string, expire, retry int, err error) // 申请验证码 需要自己发短信
-mgr.LoginMobile(mobile, code string) (user *User, token string, deadline int64, err error) 
-mgr.LoginMobileWithFrom(mobile, code, from string) (user *User, token string, deadline int64, err error)  // 带来源
+func (mgr *UserMgr) LoginLAPD(uid, rawPassword string) (user *User, token string, deadline int64, err error)
+    LoginLAPD 密码登录
 
-// LoginAuth 第三方登录
-mgr.LoginAuth(authName string, v interface{}) (user *User, token string, deadline int64, err error) 
-mgr.LoginAuthWithFrom(authName string, v interface{}, from string) (user *User, token string, deadline int64, err error) // 带来源
+func (mgr *UserMgr) LoginLAPDWithFrom(uid, rawPassword, from string) (user *User, token string, deadline int64, err error)
+    LoginLAPDWithFrom 密码登录 带来源
+
+func (mgr *UserMgr) LoginMobile(mobile, code string) (user *User, token string, deadline int64, err error)
+    LoginMobile 手机验证码登录
+
+func (mgr *UserMgr) LoginMobileApplyCode(mobile string) (code string, expire, retry int, err error)
+    LoginMobileApplyCode 手机验证码登录 申请验证码
+
+func (mgr *UserMgr) LoginMobileWithFrom(mobile, code, from string) (user *User, token string, deadline int64, err error)
+    LoginMobileWithFrom 手机验证码登录 带来源
+
+func (mgr *UserMgr) LoginTourist() (user *User, token string, deadline int64, err error)
+    LoginTourist 游客登录
+
+func (mgr *UserMgr) LoginTouristWithFrom(from string) (user *User, token string, deadline int64, err error)
+    LoginTouristWithFrom 游客登录 带来源
 ```
 
 ### 查找用户
 ```golang
-// FindUserByAny 根据用户名/邮箱/手机号 查找用户
-mgr.FindUserByAny(any string) (bool, *User, error) 
-// FindUserByUID 根据用户名 查找用户
-mgr.FindUserByUID(uid string) (bool, *User, error)
-// FindUserByEmail 根据邮箱 查找用户
-mgr.FindUserByEmail(email string) (bool, *User, error) 
-// FindUserByMobile 根据手机号 查找用户
-mgr.FindUserByMobile(mobile string) (bool, *User, error) 
-// FindUserByAuth 根据第三方认证 查找用户
-mgr.FindUserByAuth(authName, authUID string) (bool, *User, error) 
+func (mgr *UserMgr) FindUserByAny(any string) (bool, *User, error)
+    FindUserByAny 根据用户名/邮箱/手机号 查找用户
+
+func (mgr *UserMgr) FindUserByAuth(authName, authUID string) (bool, *User, error)
+    FindUserByAuth 根据第三方认证 查找用户
+
+func (mgr *UserMgr) FindUserByEmail(email string) (bool, *User, error)
+    FindUserByEmail 根据邮箱 查找用户
+
+func (mgr *UserMgr) FindUserByMobile(mobile string) (bool, *User, error)
+    FindUserByMobile 根据手机号 查找用户
+
+func (mgr *UserMgr) FindUserByUID(uid string) (bool, *User, error)
+    FindUserByUID 根据用户名 查找用户
 ```
 
 ### 校验token
 ```golang
-mgr.VerifyToken(uid, token string) (ok bool, err error)
-mgr.VerifyTokenWithFrom(uid, from, token string) (ok bool, err error) // 带来源
+func (mgr *UserMgr) VerifyToken(uid, token string) (ok bool, err error)
+    VerifyToken 验证token
+
+func (mgr *UserMgr) VerifyTokenWithFrom(uid, from, token string) (ok bool, err error)
+    VerifyTokenWithFrom 验证token 带来源
 ```
 
 ### 校验sign
 ```golang
-// 验证sign: sign由access key和请求数据(或请求数据部分字段)计算得到，前后端保持一致
-mgr.VerifySign(uid string, accessKeyID int, data interface{}, sign string) (ok bool, err error) 
+func (mgr *UserMgr) VerifySign(uid string, accessKeyID int, data interface{}, sign string) (ok bool, err error)
+    VerifySign 验证sign: sign由access key和请求数据(或请求数据部分字段)计算得到 
+```
+
+### 校验第三方认证
+```
+func (mgr *UserMgr) VerifyAuth(authName string, v interface{}) (authUID, authExtra string, err error)
+    VerifyAuth 验证第三方凭证
 ```
 
 ### 定制
 ```golang
-// 设置第三方认证
-mgrSetAuthMgr(args ...authmgr.AuthMgr)
-// 设置token管理器
-mgr.SetTokenMgr(arg tokenmgr.TokenMgr) 
-// 设置生成uid的方法 uid格式改变可能需要修改sql表结构
-mgr.SetGenerateUID(arg func() (uid, nickname, avatar, extra string)) 
-// 设置生成验证码的方法
-mgr.SetGenerateCode(arg func() string)
-// 设置生成accessKey的方法
-mgr.SetGenerateAccessKey(arg func() string) 
-// 设置根据accessKey的方法
-mgr.SetGenerateSign(arg func(accessKey string, data interface{}) string) 
-// 设置用户表的表名和表结构
-mgr.SetTableUser(tableName, tableCreateSQL string) error 
-// 设置第三方认证表的表名和表结构
-mgr.SetTableAuth(tableName, tableCreateSQL string) error 
-// 设置accessKey表的表名和表结构
-mgr.SetTableAccessKey(tableName, tableCreateSQL string) error
+func (mgr *UserMgr) SetAuthMgr(args ...authmgr.AuthMgr)
+    SetAuthMgr 设置第三方认证
+
+func (mgr *UserMgr) SetGenerateAccessKey(arg func() string)
+    SetGenerateAccessKey 设置生成accesskey的方法
+
+func (mgr *UserMgr) SetGenerateCode(arg func() string)
+    SetGenerateCode 设置生成验证码的方法
+
+func (mgr *UserMgr) SetGenerateSign(arg func(accessKey string, data interface{}) string)
+    SetGenerateSign 设置根据accesskey计算sign的方法
+
+func (mgr *UserMgr) SetGenerateUID(arg func() (uid, nickname, avatar, extra string))
+    SetGenerateUID 设置生成用户信息的方法 如果uid格式改变，可能需要修改sql表结构
+
+func (mgr *UserMgr) SetMLogName(name string)
+    SetMLogName 设置日志
+
+func (mgr *UserMgr) SetTableAccessKey(tableName, tableCreateSQL string) error
+    SetTableAccessKey 设置accessKey表表名和表结构
+
+func (mgr *UserMgr) SetTableAuth(tableName, tableCreateSQL string) error
+    SetTableAuth 设置第三方验证表表名和表结构
+
+func (mgr *UserMgr) SetTableUser(tableName, tableCreateSQL string) error
+    SetTableUser 设置用户表表名和表结构
+
+func (mgr *UserMgr) SetTokenMgr(arg tokenmgr.TokenMgr)
+    SetTokenMgr 设置token管理器
 ```
 
-### 示例
+### sql表
+```golang
+func (mgr *UserMgr) EnsureTables() error
+    EnsureTables 确保sql表已建立
+
+func (mgr *UserMgr) TableNames() []string
+    TableNames 获得表名
+
+func (mgr *UserMgr) TablesCreateSQL() []string
+    TablesCreateSQL 获得建表语句
+```
+
+### 验证码
+```golang
+func (mgr *UserMgr) ApplyCode(expire int, args ...interface{}) (code string, expire0 int, err error)
+    ApplyCode 申请一个验证码, args用来区分场景
+
+func (mgr *UserMgr) ApplyCodeAntiReplay(lockname string, expire, retry int, args ...interface{}) (code string, expire0, retry0 int, err error)
+    ApplyCodeAntiReplay 申请一个防重放验证码, args用来区分场景
+
+func (mgr *UserMgr) VerifyCode(code string, args ...interface{}) (bool, error)
+    VerifyCode 申请验证码 args和ApplyCode时保持一致
+```
+
+### 用户
+```golang
+type User struct {
+        *UserData
+        // Has unexported fields.
+}
+    User 用户
+
+func (user *User) BindAuth(authName string, v interface{}) error
+    BindAuth 绑定第三方认证
+
+func (user *User) Clean() error
+    Clean 清除用户
+
+func (user *User) DeleteAccessKey(accessKeyID int) error
+    DeleteAccessKey 删除一个 access key
+
+func (user *User) GenerateAccessKey(comment string, expireAts ...time.Time) (*UserAccessKey, error)
+    GenerateAccessKey 生成一个 access key
+
+func (user *User) GetAccessKeys(isAll bool) ([]*UserAccessKey, error)
+    GetAccessKeys 获取accesskeys isAll 是否包含过期的访问秘钥
+
+func (user *User) GetAuths() ([]*UserAuth, error)
+    GetAuths 获得第三方认证信息
+
+func (user *User) Login() (token string, deadline int64, err error)
+    Login 登录
+
+func (user *User) LoginWithFrom(from string) (token string, deadline int64, err error)
+    LoginWithFrom 登录 带来源
+
+func (user *User) Logout() error
+    Logout 登出
+
+func (user *User) LogoutWithFrom(from string) error
+    LogoutWithFrom 登出 带来源
+
+func (user *User) UnbindAuth(authName string) error
+    UnbindAuth 解绑第三方认证
+
+func (user *User) UpdateAccessKeyComment(accessKeyID int, comment string) error
+    UpdateAccessKeyComment 更新一个 access key 的 comment
+
+func (user *User) UpdateAccessKeyExpireAt(accessKeyID int, expireAt *time.Time) error
+    UpdateAccessKeyExpireAt 更新一个 access key的超时设置 expireAt为空表示永久有效
+
+func (user *User) UpdateAuthInfo(authName, authExtra string) error
+    UpdateAuthInfo 更新第三方认证信息
+
+func (user *User) UpdateEmail(email, code string) error
+    UpdateEmail 更新邮箱
+
+func (user *User) UpdateEmailApplyCode() (code string, expire int, err error)
+    UpdateEmailApplyCode 更新邮箱申请验证码
+
+func (user *User) UpdateInfo(nickname, avatar, extra *string) error
+    UpdateInfo 更新用户信息
+
+func (user *User) UpdateMobile(mobile, code string) error
+    UpdateMobile 更新手机号
+
+func (user *User) UpdateMobileApplyCode(mobile string) (code string, expire, retry int, err error)
+    UpdateMobileApplyCode 更新手机号申请验证码
+
+func (user *User) UpdatePasswordApplyCode() (code string, expire int, err error)
+    UpdatePasswordApplyCode 更改密码申请验证码
+
+func (user *User) UpdatePasswordWithCode(rawPassword, code string) error
+    UpdatePasswordWithCode 通过验证码更改密码
+
+func (user *User) UpdatePasswordWithPassword(oldRawPassword, newRawPassword string) error
+    UpdatePasswordWithPassword 通过旧密码更改密码
+
+func (user *User) UpdateUID(uid string) error
+    UpdateUID 更新uid
+```
+
+## 示例
 ```golang
 package main
 

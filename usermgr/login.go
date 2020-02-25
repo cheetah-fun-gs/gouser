@@ -8,7 +8,7 @@ func (mgr *UserMgr) LoginTourist() (user *User, token string, deadline int64, er
 	return mgr.LoginTouristWithFrom(fromDefault)
 }
 
-// LoginTouristWithFrom 游客登录
+// LoginTouristWithFrom 游客登录 带来源
 func (mgr *UserMgr) LoginTouristWithFrom(from string) (user *User, token string, deadline int64, err error) {
 	user, err = mgr.RegisterTourist()
 	if err != nil {
