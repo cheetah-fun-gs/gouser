@@ -1,5 +1,5 @@
-// Package usermgr 查找用户
-package usermgr
+// Package gouser 查找用户
+package gouser
 
 import (
 	"database/sql"

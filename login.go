@@ -1,5 +1,5 @@
-// Package usermgr 登录并注册
-package usermgr
+// Package gouser 登录并注册
+package gouser
 
 import "fmt"
 

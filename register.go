@@ -1,5 +1,5 @@
-// Package usermgr 注册方法 仅注册
-package usermgr
+// Package gouser 注册方法 仅注册
+package gouser
 
 import (
 	"database/sql"

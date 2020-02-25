@@ -9,7 +9,6 @@ import (
 	"time"
 
 	"github.com/cheetah-fun-gs/gouser"
-	"github.com/cheetah-fun-gs/gouser/usermgr"
 	_ "github.com/go-sql-driver/mysql"
 	redigo "github.com/gomodule/redigo/redis"
 )
@@ -54,7 +53,7 @@ func main() {
 
 	name := "demo"
 	secret := "tZli3W^4Rb#V"
-	mgr := gouser.New(name, secret, pool, db, usermgr.Config{IsEnableAccessKey: true})
+	mgr := gouser.New(name, secret, pool, db, gouser.Config{IsEnableAccessKey: true})
 	// 设置认证
 	mgr.SetAuthMgr(&testAuth{})
 

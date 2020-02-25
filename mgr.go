@@ -1,4 +1,4 @@
-package usermgr
+package gouser
 
 import (
 	"crypto/md5"
