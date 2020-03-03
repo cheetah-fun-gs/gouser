@@ -226,7 +226,7 @@ func (user *User) GetAuths() ([]*UserAuth, error) {
 	return auths, nil
 }
 
-// UpdateInfo 更新用户信息
+// UpdateInfo 更新用户信息 参数可为nil, 表示不修改
 func (user *User) UpdateInfo(nickname, avatar, extra *string) error {
 	if nickname == nil && avatar == nil && extra == nil {
 		return fmt.Errorf("no valid params")
@@ -236,15 +236,15 @@ func (user *User) UpdateInfo(nickname, avatar, extra *string) error {
 	args := []interface{}{}
 	if nickname != nil {
 		splits = append(splits, "nickname = ?")
-		args = append(args, nickname)
+		args = append(args, *nickname)
 	}
 	if avatar != nil {
 		splits = append(splits, "avatar = ?")
-		args = append(args, avatar)
+		args = append(args, *avatar)
 	}
 	if extra != nil {
 		splits = append(splits, "extra = ?")
-		args = append(args, extra)
+		args = append(args, *extra)
 	}
 
 	now := time.Now()
@@ -488,11 +488,16 @@ func (user *User) UpdateAccessKeyComment(accessKeyID int, comment string) error 
 	return nil
 }
 
-// UpdateAccessKeyExpireAt 更新一个 access key的超时设置 expireAt为空表示永久有效
+// UpdateAccessKeyExpireAt 更新一个 access key的超时设置 expireAt为 nil 表示永久有效
 func (user *User) UpdateAccessKeyExpireAt(accessKeyID int, expireAt *time.Time) error {
 	now := time.Now()
 	query := fmt.Sprintf("UPDATE %v Set expire_at = ?, updated = ? WHERE id = ?;", user.mgr.tableUserAccessKey.Name)
-	args := []interface{}{expireAt, now, accessKeyID}
+	expireAtArg := sql.NullTime{}
+	if expireAt != nil {
+		expireAtArg.Valid = true
+		expireAtArg.Time = *expireAt
+	}
+	args := []interface{}{expireAtArg, now, accessKeyID}
 	updateCount, err := sqlplus.RowsAffected(user.mgr.db.Exec(query, args...))
 	if err != nil {
 		return err

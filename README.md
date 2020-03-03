@@ -223,7 +223,7 @@ func (user *User) UpdateAccessKeyComment(accessKeyID int, comment string) error
     UpdateAccessKeyComment 更新一个 access key 的 comment
 
 func (user *User) UpdateAccessKeyExpireAt(accessKeyID int, expireAt *time.Time) error
-    UpdateAccessKeyExpireAt 更新一个 access key的超时设置 expireAt为空表示永久有效
+	UpdateAccessKeyExpireAt 更新一个 access key的超时设置 expireAt为 nil 表示永久有效
 
 func (user *User) UpdateAuthInfo(authName, authExtra string) error
     UpdateAuthInfo 更新第三方认证信息
@@ -235,7 +235,7 @@ func (user *User) UpdateEmailApplyCode() (code string, expire int, err error)
     UpdateEmailApplyCode 更新邮箱申请验证码
 
 func (user *User) UpdateInfo(nickname, avatar, extra *string) error
-    UpdateInfo 更新用户信息
+	 UpdateInfo 更新用户信息 参数可为nil, 表示不修改
 
 func (user *User) UpdateMobile(mobile, code string) error
     UpdateMobile 更新手机号
