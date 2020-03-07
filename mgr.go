@@ -203,16 +203,8 @@ func (mgr *UserMgr) SetTableAccessKey(tableName, tableCreateSQL string) error {
 
 // EnsureTables 确保sql表已建立
 func (mgr *UserMgr) EnsureTables() error {
-	if _, err := mgr.db.Exec(mgr.tableUser.CreateSQL); err != nil {
-		return err
-	}
-	if len(mgr.authMgrs) > 0 {
-		if _, err := mgr.db.Exec(mgr.tableUserAuth.CreateSQL); err != nil {
-			return err
-		}
-	}
-	if mgr.config.IsEnableAccessKey {
-		if _, err := mgr.db.Exec(mgr.tableUserAccessKey.CreateSQL); err != nil {
+	for _, createSQL := range mgr.TablesCreateSQL() {
+		if _, err := mgr.db.Exec(createSQL); err != nil {
 			return err
 		}
 	}
@@ -231,8 +223,8 @@ func (mgr *UserMgr) TablesCreateSQL() []string {
 	return result
 }
 
-// TableNames 获得表名
-func (mgr *UserMgr) TableNames() []string {
+// TablesName 获得表名
+func (mgr *UserMgr) TablesName() []string {
 	result := []string{mgr.tableUser.Name}
 	if len(mgr.authMgrs) > 0 {
 		result = append(result, mgr.tableUserAuth.Name)

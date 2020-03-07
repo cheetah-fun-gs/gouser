@@ -159,8 +159,8 @@ func (mgr *UserMgr) SetTokenMgr(arg tokenmgr.TokenMgr)
 func (mgr *UserMgr) EnsureTables() error
     EnsureTables 确保sql表已建立
 
-func (mgr *UserMgr) TableNames() []string
-    TableNames 获得表名
+func (mgr *UserMgr) TablesName() []string
+    TablesName 获得表名
 
 func (mgr *UserMgr) TablesCreateSQL() []string
     TablesCreateSQL 获得建表语句
@@ -321,7 +321,7 @@ func main() {
 		panic(err)
 	}
 
-	for _, tableName := range mgr.TableNames() {
+	for _, tableName := range mgr.TablesName() {
 		if _, err = db.Exec(fmt.Sprintf("truncate table %s;", tableName)); err != nil {
 			panic(err)
 		}

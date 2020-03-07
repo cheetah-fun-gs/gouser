@@ -61,7 +61,7 @@ func main() {
 		panic(err)
 	}
 
-	for _, tableName := range mgr.TableNames() {
+	for _, tableName := range mgr.TablesName() {
 		if _, err = db.Exec(fmt.Sprintf("truncate table %s;", tableName)); err != nil {
 			panic(err)
 		}
